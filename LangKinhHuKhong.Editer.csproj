@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWindowsForms>true</UseWindowsForms>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+    <AssemblyName>LangKinhHuKhong.Editer</AssemblyName>
+    <RootNamespace>LangKinhHuKhong.Editer</RootNamespace>
+    <ApplicationTitle>LangKinhHuKhong.Editer</ApplicationTitle>
+    <Version>1.2.0</Version>
+  </PropertyGroup>
+</Project>
