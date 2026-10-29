@@ -34,7 +34,7 @@ public static class PlaybackSpeeds
         "atempo=" + speed.ToString("0.##", CultureInfo.InvariantCulture);
 }
 
-public sealed record OverlayOption(string ImagePath, Corner Corner);
+public sealed record OverlayOption(string ImagePath, Corner Corner, int WidthPercent = 20, int HeightPercent = 20, int OffsetXPercent = 1, int OffsetYPercent = 1);
 
 public sealed record RenderOptions(
     IReadOnlyList<VideoClipOption> Videos,
@@ -44,11 +44,9 @@ public sealed record RenderOptions(
     int Width,
     int Height,
     int FrameRate,
-    int OverlayWidthPercent,
-    int OverlayHeightPercent,
-    int MarginPercent,
     bool MuteVideoAudio,
-    VideoEncoder Encoder)
+    VideoEncoder Encoder,
+    SubtitleOptions? Subtitles = null)
 {
     public string ResolutionName => Height switch
     {

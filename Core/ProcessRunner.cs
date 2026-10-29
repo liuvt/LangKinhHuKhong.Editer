@@ -9,7 +9,8 @@ public static class ProcessRunner
         string executable,
         IEnumerable<string> arguments,
         Action<string>? onStdout,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        string? workingDirectory = null)
     {
         var info = new ProcessStartInfo(executable)
         {
@@ -18,7 +19,8 @@ public static class ProcessRunner
             RedirectStandardOutput = true,
             RedirectStandardError = true,
             StandardOutputEncoding = Encoding.UTF8,
-            StandardErrorEncoding = Encoding.UTF8
+            StandardErrorEncoding = Encoding.UTF8,
+            WorkingDirectory = workingDirectory ?? Environment.CurrentDirectory
         };
         foreach (var argument in arguments)
             info.ArgumentList.Add(argument);

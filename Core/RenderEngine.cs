@@ -33,6 +33,7 @@ public sealed class RenderEngine(FfmpegTools tools)
             // channel layouts, metadata and VBR MP3 files. MP3 order is preserved.
             var audioClips = new List<string>();
             double estimatedAudioDuration = 0;
+            var normalizedAudioDurations = new List<double>();
             for (var i = 0; i < options.Mp3Files.Count; i++)
             {
                 cancellationToken.ThrowIfCancellationRequested();
@@ -56,6 +57,7 @@ public sealed class RenderEngine(FfmpegTools tools)
                         progress.Report(new RenderProgress(title,
                             15.0 * (index + p) / options.Mp3Files.Count))), cancellationToken);
                 audioClips.Add(output);
+                normalizedAudioDurations.Add(await _probe.GetDurationSecondsAsync(output, cancellationToken));
             }
 
             // Step 2: encode the concatenated audio just once. The final AUDIO
@@ -80,6 +82,18 @@ public sealed class RenderEngine(FfmpegTools tools)
                     progress.Report(new RenderProgress(joinTitle, 15.0 + 5.0 * p))),
                 cancellationToken);
             var audioDuration = await _probe.GetDurationSecondsAsync(joinedAudio, cancellationToken);
+
+            // Subtitles follow the concatenated MP3 timeline, not repeated video clips.
+            // A global SRT stays absolute; per-MP3 SRTs are shifted by actual decoded
+            // FLAC durations, with a user-configurable global +/- millisecond offset.
+            var mergedSubtitleFile = Path.Combine(workdir, "joined_subtitles.srt");
+            if (options.Subtitles is { SrtFiles.Count: > 0 } sub)
+            {
+                progress.Report(new RenderProgress("Đồng bộ mốc SRT theo audio đã nối...", 19));
+                var cues = SubtitleComposer.Merge(sub, normalizedAudioDurations, audioDuration);
+                await SubtitleComposer.WriteSrtAsync(mergedSubtitleFile, cues, cancellationToken);
+            }
+
 
             // Step 3: normalize each video using ITS OWN playback speed and the
             // selected export resolution/FPS; retain original sequence.
@@ -117,17 +131,30 @@ public sealed class RenderEngine(FfmpegTools tools)
                              $"Playlist video {TimeSpan.FromSeconds(playlistDuration).ToString("c", CultureInfo.InvariantCulture)} | " +
                              $"{cycles} lượt phát (lượt cuối có thể bị cắt)";
             progress.Report(new RenderProgress(finalTitle, 55));
-            var outputFile = GetUniqueOutputFile(options.OutputDirectory, "LangKinhHuKhong_Full", options.ResolutionName);
+            var outputFile = GetUniqueOutputFile(options.OutputDirectory, "LangKinhHuKhong_Full", options.ResolutionName,
+                options.Subtitles is { SrtFiles.Count: > 0, SaveSidecarSrt: true });
             var temporaryOutput = Path.Combine(workdir, "final_render.mp4");
             var finalArgs = BuildOutputArguments(options, videoList, joinedAudio, temporaryOutput, audioDuration);
             await ProcessRunner.RunAsync(tools.Ffmpeg, finalArgs,
                 line => ReportFfmpegProgress(line, audioDuration, p =>
                     progress.Report(new RenderProgress(finalTitle, 55.0 + 45.0 * p))),
-                cancellationToken);
+                cancellationToken, workdir);
 
             // A failed/canceled job must not leave a partial MP4 in output folder.
             cancellationToken.ThrowIfCancellationRequested();
-            File.Move(temporaryOutput, outputFile);
+            var sidecar = Path.ChangeExtension(outputFile, ".srt");
+            var shouldSaveSrt = options.Subtitles is { SrtFiles.Count: > 0, SaveSidecarSrt: true };
+            try
+            {
+                if (shouldSaveSrt) File.Copy(mergedSubtitleFile, sidecar, overwrite: false);
+                File.Move(temporaryOutput, outputFile);
+            }
+            catch
+            {
+                if (shouldSaveSrt && !File.Exists(outputFile))
+                    try { File.Delete(sidecar); } catch (IOException) { } catch (UnauthorizedAccessException) { }
+                throw;
+            }
             progress.Report(new RenderProgress("Hoàn thành 1 video MP4 duy nhất.", 100));
             return outputFile;
         }
@@ -153,9 +180,9 @@ public sealed class RenderEngine(FfmpegTools tools)
     {
         if (settings.Videos.Count == 0) throw new ArgumentException("Chưa chọn video nguồn.");
         if (settings.Mp3Files.Count == 0) throw new ArgumentException("Chưa chọn MP3.");
-        if (settings.Overlays.Count > 2) throw new ArgumentException("Tối đa 2 ảnh overlay.");
+        if (settings.Overlays.Count > 4) throw new ArgumentException("Tối đa 4 ảnh overlay (mỗi góc một ảnh).");
         if (settings.Overlays.Select(x => x.Corner).Distinct().Count() != settings.Overlays.Count)
-            throw new ArgumentException("Hai ảnh phải đặt ở hai góc khác nhau.");
+            throw new ArgumentException("Mỗi ảnh phải được đặt vào một góc khác nhau.");
         if (string.IsNullOrWhiteSpace(settings.OutputDirectory))
             throw new ArgumentException("Chưa chọn thư mục đầu ra.");
         if (settings.FrameRate is < 1 or > 120) throw new ArgumentException("FPS không hợp lệ.");
@@ -164,8 +191,18 @@ public sealed class RenderEngine(FfmpegTools tools)
         foreach (var clip in settings.Videos)
             if (!PlaybackSpeeds.IsSupported(clip.PlaybackSpeed))
                 throw new ArgumentException($"Tốc độ video không hợp lệ: {clip.FilePath} ({clip.PlaybackSpeed}).");
+        if (settings.Subtitles is { SrtFiles.Count: > 0 } sub)
+        {
+            if (sub.ImportMode == SubtitleImportMode.GlobalTimeline && sub.SrtFiles.Count != 1)
+                throw new ArgumentException("Chế độ SRT toàn bộ chỉ nhận đúng 1 file.");
+            if (sub.ImportMode == SubtitleImportMode.OneSrtPerMp3 && sub.SrtFiles.Count != settings.Mp3Files.Count)
+                throw new ArgumentException("Số file SRT phải bằng số MP3 khi chọn chế độ Theo từng MP3.");
+            if (!sub.BurnIntoVideo && !sub.SaveSidecarSrt)
+                throw new ArgumentException("Hãy chọn ít nhất 1 kiểu xuất phụ đề: chèn vào video hoặc lưu SRT riêng.");
+        }
         foreach (var input in settings.Videos.Select(x => x.FilePath).Concat(settings.Mp3Files)
-                     .Concat(settings.Overlays.Select(x => x.ImagePath)))
+                     .Concat(settings.Overlays.Select(x => x.ImagePath))
+                     .Concat(settings.Subtitles?.SrtFiles ?? []))
             if (!File.Exists(input)) throw new FileNotFoundException("Không tìm thấy tệp: " + input, input);
     }
 
@@ -263,25 +300,38 @@ public sealed class RenderEngine(FfmpegTools tools)
 
     private static string BuildOverlayFilter(RenderOptions settings)
     {
-        var filters = new List<string> { "[0:v]setpts=PTS-STARTPTS[v0]" };
-        var maxWidth = Math.Max(16, settings.Width * settings.OverlayWidthPercent / 100);
-        var maxHeight = Math.Max(16, settings.Height * settings.OverlayHeightPercent / 100);
-        var margin = settings.Width * settings.MarginPercent / 100;
+        var initial = "[0:v]setpts=PTS-STARTPTS";
+        var filters = new List<string> { initial + "[v0]" };
         for (var i = 0; i < settings.Overlays.Count; i++)
         {
-            var x = settings.Overlays[i].Corner is Corner.TopLeft or Corner.BottomLeft
-                ? margin.ToString(CultureInfo.InvariantCulture)
-                : $"W-w-{margin}";
-            var y = settings.Overlays[i].Corner is Corner.TopLeft or Corner.TopRight
-                ? margin.ToString(CultureInfo.InvariantCulture)
-                : $"H-h-{margin}";
+            var overlay = settings.Overlays[i];
+            var maxWidth = Math.Max(16, settings.Width * Math.Clamp(overlay.WidthPercent, 1, 100) / 100);
+            var maxHeight = Math.Max(16, settings.Height * Math.Clamp(overlay.HeightPercent, 1, 100) / 100);
+            var offsetX = Math.Max(0, settings.Width * Math.Clamp(overlay.OffsetXPercent, 0, 100) / 100);
+            var offsetY = Math.Max(0, settings.Height * Math.Clamp(overlay.OffsetYPercent, 0, 100) / 100);
+            // Escape filtergraph commas (\,) or FFmpeg treats min/max arguments as separate filters.
+            // Clamp after scaling so overlays never leave the rendered image.
+            var x = overlay.Corner is Corner.TopLeft or Corner.BottomLeft
+                ? $"min({offsetX}\\,W-w)"
+                : $"max(0\\,W-w-{offsetX})";
+            var y = overlay.Corner is Corner.TopLeft or Corner.TopRight
+                ? $"min({offsetY}\\,H-h)"
+                : $"max(0\\,H-h-{offsetY})";
             filters.Add($"[{i + 2}:v]scale={maxWidth}:{maxHeight}:" +
                         "force_original_aspect_ratio=decrease:flags=lanczos," +
                         $"format=rgba[logo{i}]");
             filters.Add($"[v{i}][logo{i}]overlay=x={x}:y={y}:" +
                         $"eof_action=repeat:format=auto[v{i + 1}]");
         }
-        filters.Add($"[v{settings.Overlays.Count}]format=yuv420p[vout]");
+        var lastVideo = $"[v{settings.Overlays.Count}]";
+        // v2: subtitles/text must be the topmost layer, above all PNG overlays.
+        if (settings.Subtitles is { SrtFiles.Count: > 0, BurnIntoVideo: true } sub)
+        {
+            var escaped = SubtitleComposer.BuildBurnInFilter(sub);
+            filters.Add($"{lastVideo}{escaped}[vsub]");
+            lastVideo = "[vsub]";
+        }
+        filters.Add($"{lastVideo}format=yuv420p[vout]");
         return string.Join(';', filters);
     }
 
@@ -292,14 +342,15 @@ public sealed class RenderEngine(FfmpegTools tools)
             callback(Math.Clamp(time.TotalSeconds / totalSeconds, 0, 1));
     }
 
-    private static string GetUniqueOutputFile(string folder, string name, string resolution)
+    private static string GetUniqueOutputFile(string folder, string name, string resolution, bool includeSidecar)
     {
         var invalid = Path.GetInvalidFileNameChars();
         var clean = new string(name.Select(c => invalid.Contains(c) ? '_' : c).ToArray()).Trim();
         if (string.IsNullOrEmpty(clean)) clean = "video";
         var prefix = $"{clean}_{resolution}";
         var candidate = Path.Combine(folder, prefix + ".mp4");
-        for (var i = 2; File.Exists(candidate); i++)
+        for (var i = 2; File.Exists(candidate) ||
+             (includeSidecar && File.Exists(Path.ChangeExtension(candidate, ".srt"))); i++)
             candidate = Path.Combine(folder, $"{prefix}_{i}.mp4");
         return candidate;
     }

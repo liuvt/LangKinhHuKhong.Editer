@@ -1,33 +1,50 @@
 using System.Drawing;
+using System.Drawing.Drawing2D;
 using LangKinhHuKhong.Editer.Core;
 
 namespace LangKinhHuKhong.Editer.UI;
 
 public sealed class MainForm : Form
 {
-    private static readonly Color Background = Color.FromArgb(18, 22, 31);
-    private static readonly Color CardColor = Color.FromArgb(30, 36, 49);
-    private static readonly Color InputColor = Color.FromArgb(42, 49, 65);
-    private static readonly Color Foreground = Color.FromArgb(234, 238, 247);
-    private static readonly Color Muted = Color.FromArgb(166, 176, 195);
-    private static readonly Color Accent = Color.FromArgb(64, 152, 252);
+    private static readonly Color Background = Color.FromArgb(13, 19, 30);
+    private static readonly Color CardColor = Color.FromArgb(24, 33, 48);
+    private static readonly Color InputColor = Color.FromArgb(34, 45, 63);
+    private static readonly Color Foreground = Color.FromArgb(242, 246, 253);
+    private static readonly Color Muted = Color.FromArgb(165, 180, 200);
+    private static readonly Color Accent = Color.FromArgb(33, 185, 171);
 
     private readonly ListBox _videos = NewListBox();
     private readonly ListBox _mp3s = NewListBox();
+    private readonly ListBox _srts = NewListBox();
+    private readonly Label _srtCount = NewLabel("0 SRT", 10, Muted);
+    private readonly ComboBox _srtMode = NewCombo();
+    private readonly CheckBox _burnSrt = new();
+    private readonly CheckBox _exportSrt = new();
+    private readonly ComboBox _subFont = NewCombo();
+    private readonly NumericUpDown _subFontSize = NewNumber(28, 14, 80);
+    private readonly NumericUpDown _subOffset = new() { Minimum = -10000, Maximum = 10000, Increment = 100, Width = 90 };
+    private readonly TextBox _srtPreview = NewTextBox();
+    private Panel? _srtCard;
+    private Panel? _videoCard;
+    private Panel? _overlayCard;
+    private Panel? _settingsCard;
+    private Panel? _previewCard;
+    private Panel? _scrollArea;
     private readonly Label _videoCount = NewLabel("0 video", 10, Muted);
     private readonly Label _mp3Count = NewLabel("0 MP3", 10, Muted);
     private readonly TextBox _image1Path = NewTextBox();
     private readonly TextBox _image2Path = NewTextBox();
+    private readonly TextBox _image3Path = NewTextBox();
+    private readonly TextBox _image4Path = NewTextBox();
     private readonly PictureBox _preview1 = NewPreview();
     private readonly PictureBox _preview2 = NewPreview();
-    private readonly ComboBox _corner1 = NewCombo();
-    private readonly ComboBox _corner2 = NewCombo();
+    private readonly PictureBox _preview3 = NewPreview();
+    private readonly PictureBox _preview4 = NewPreview();
+    private readonly PictureBox _layoutPreview = NewPreview();
+    private readonly OverlaySlot[] _overlaySlots;
     private readonly TextBox _folderPath = NewTextBox();
     private readonly ComboBox _resolution = NewCombo();
     private readonly ComboBox _encoder = NewCombo();
-    private readonly NumericUpDown _overlayWidth = NewNumber(29, 10, 65);
-    private readonly NumericUpDown _overlayHeight = NewNumber(56, 10, 90);
-    private readonly NumericUpDown _margin = NewNumber(1, 0, 12);
     private readonly CheckBox _muteSourceAudio = new();
     private readonly ComboBox _selectedVideoSpeed = NewCombo();
     private readonly Button _applySpeed = NewButton("ÁP DỤNG", true);
@@ -46,14 +63,22 @@ public sealed class MainForm : Form
 
     public MainForm()
     {
-        Text = "LangKinhHuKhong.Editer v1.2  |  Video + MP3 + Ảnh + Tốc độ từng video";
-        MinimumSize = new Size(1000, 760);
-        Size = new Size(1380, 900);
+        Text = "LangKinhHuKhong.Editer v3.0  |  Video Studio • MP3 • SRT • 4 PNG";
+        MinimumSize = new Size(1050, 720);
+        Size = new Size(1520, 980);
         StartPosition = FormStartPosition.CenterScreen;
         BackColor = Background;
         ForeColor = Foreground;
         Font = new Font("Segoe UI", 10F, FontStyle.Regular, GraphicsUnit.Point);
         AutoScaleMode = AutoScaleMode.Dpi;
+        LoadWindowIcon();
+        _overlaySlots =
+        [
+            new OverlaySlot(Corner.TopLeft, "04-1  ẢNH TRÊN TRÁI", _image1Path, _preview1, NewNumber(20, 20, 100), NewNumber(20, 20, 100), NewNumber(1, 0, 100), NewNumber(1, 0, 100)),
+            new OverlaySlot(Corner.TopRight, "04-2  ẢNH TRÊN PHẢI", _image2Path, _preview2, NewNumber(20, 20, 100), NewNumber(20, 20, 100), NewNumber(1, 0, 100), NewNumber(1, 0, 100)),
+            new OverlaySlot(Corner.BottomLeft, "04-3  ẢNH DƯỚI TRÁI", _image3Path, _preview3, NewNumber(20, 20, 100), NewNumber(20, 20, 100), NewNumber(1, 0, 100), NewNumber(1, 0, 100)),
+            new OverlaySlot(Corner.BottomRight, "04-4  ẢNH DƯỚI PHẢI", _image4Path, _preview4, NewNumber(20, 20, 100), NewNumber(20, 20, 100), NewNumber(1, 0, 100), NewNumber(1, 0, 100))
+        ];
 
         BuildInterface();
         WireEvents();
@@ -66,88 +91,284 @@ public sealed class MainForm : Form
     {
         var root = new TableLayoutPanel
         {
-            Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 3, BackColor = Background,
-            Margin = Padding.Empty, Padding = Padding.Empty
+            Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 3,
+            BackColor = Background, Margin = Padding.Empty, Padding = Padding.Empty
         };
-        root.RowStyles.Add(new RowStyle(SizeType.Absolute, 91));
+        root.RowStyles.Add(new RowStyle(SizeType.Absolute, 106));
         root.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
-        root.RowStyles.Add(new RowStyle(SizeType.Absolute, 142));
+        root.RowStyles.Add(new RowStyle(SizeType.Absolute, 145));
         Controls.Add(root);
 
-        var header = new Panel { Dock = DockStyle.Fill, BackColor = CardColor, Padding = new Padding(24, 12, 24, 8) };
-        var title = NewLabel("LANG KINH HƯ KHÔNG  /  VIDEO EDITER", 19, Foreground, true);
-        title.Dock = DockStyle.Top;
-        title.Height = 36;
-        var subtitle = NewLabel("Tốc độ từng video  •  Bật/tắt âm video  •  Ghép MP3  •  2 ảnh overlay  •  720p / 1080p / 4K", 10, Muted);
-        subtitle.Dock = DockStyle.Top;
-        subtitle.Height = 25;
-        header.Controls.Add(subtitle);
-        header.Controls.Add(title);
+        var header = new TableLayoutPanel
+        {
+            Dock = DockStyle.Fill, BackColor = CardColor, ColumnCount = 2, RowCount = 1,
+            Padding = new Padding(27, 14, 27, 10)
+        };
+        header.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+        header.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+        header.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 230));
+        // v2.1: show the user's exact supplied logo at its true aspect ratio.
+        // The previous nested 44px first row clipped the full-height logo.
+        var brandWrap = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, RowCount = 1, BackColor = CardColor };
+        brandWrap.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 86));
+        brandWrap.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+        var logoBox = NewPreview();
+        logoBox.Margin = new Padding(0, 2, 10, 2);
+        logoBox.BackColor = CardColor;
+        logoBox.SizeMode = PictureBoxSizeMode.Zoom;
+        TryLoadAppLogo(logoBox);
+        brandWrap.Controls.Add(logoBox, 0, 0);
+        var brandText = new TableLayoutPanel { Dock = DockStyle.Fill, RowCount = 2, BackColor = CardColor };
+        brandText.RowStyles.Add(new RowStyle(SizeType.Percent, 58));
+        brandText.RowStyles.Add(new RowStyle(SizeType.Percent, 42));
+        brandText.Controls.Add(NewLabel("LĂNG KÍNH HƯ KHÔNG   /   VIDEO STUDIO", 19, Foreground, true), 0, 0);
+        brandText.Controls.Add(NewLabel("EDITER v3.0  •  4 PNG độc lập  •  Vị trí riêng từng ảnh  •  Subtitle on top", 10, Muted), 0, 1);
+        brandWrap.Controls.Add(brandText, 1, 0);
+        header.Controls.Add(brandWrap, 0, 0);
+        var badge = NewLabel("●  01 MP4 / MỖI LẦN XUẤT  •  v3.0", 11, Accent, true);
+        badge.TextAlign = ContentAlignment.MiddleRight;
+        header.Controls.Add(badge, 1, 0);
         root.Controls.Add(header, 0, 0);
 
-        var scroll = new Panel { Dock = DockStyle.Fill, AutoScroll = true };
-        root.Controls.Add(scroll, 0, 1);
+        var central = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, BackColor = Background };
+        central.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 202));
+        central.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+        var sidebar = new Panel { Dock = DockStyle.Fill, BackColor = Color.FromArgb(18, 26, 39), Padding = new Padding(13, 19, 12, 12) };
+        var menu = new FlowLayoutPanel { Dock = DockStyle.Fill, FlowDirection = FlowDirection.TopDown, WrapContents = false };
+        var navTitle = NewLabel("QUY TRÌNH DỰNG VIDEO", 9, Muted, true);
+        navTitle.AutoSize = false; navTitle.Width = 176; navTitle.Height = 44;
+        menu.Controls.Add(navTitle);
+        AddNav(menu, "01    Video nguồn", () => JumpTo(_videoCard));
+        AddNav(menu, "02    Âm thanh MP3", () => JumpTo(_videoCard));
+        AddNav(menu, "03    Phụ đề SRT", () => JumpTo(_srtCard));
+        AddNav(menu, "04    4 góc ảnh PNG", () => JumpTo(_overlayCard));
+        AddNav(menu, "05    Xem trước bố cục", () => JumpTo(_previewCard));
+        AddNav(menu, "06    Cấu hình xuất", () => JumpTo(_settingsCard));
+        var hint = NewLabel("KÉO THẢ TỆP VÀO DANH SÁCH\n\nVideo được lặp từ đầu nếu ngắn hơn audio. Phụ đề theo thời gian MP3, không theo vòng lặp video.", 9, Muted);
+        hint.Width = 173; hint.Height = 160; hint.Margin = new Padding(0, 32, 0, 0);
+        menu.Controls.Add(hint);
+        sidebar.Controls.Add(menu);
+        central.Controls.Add(sidebar, 0, 0);
+
+        _scrollArea = new Panel { Dock = DockStyle.Fill, AutoScroll = true, BackColor = Background };
+        central.Controls.Add(_scrollArea, 1, 0);
         var body = new TableLayoutPanel
         {
             Dock = DockStyle.Top, AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink,
-            ColumnCount = 2, RowCount = 4, Padding = new Padding(14, 16, 14, 14),
-            BackColor = Background, CellBorderStyle = TableLayoutPanelCellBorderStyle.None
+            ColumnCount = 2, RowCount = 7, Padding = new Padding(16, 14, 17, 18), BackColor = Background
         };
         body.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
         body.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
-        body.RowStyles.Add(new RowStyle(SizeType.Absolute, 358));
-        body.RowStyles.Add(new RowStyle(SizeType.Absolute, 220));
-        body.RowStyles.Add(new RowStyle(SizeType.Absolute, 196));
-        body.RowStyles.Add(new RowStyle(SizeType.Absolute, 42));
-        scroll.Controls.Add(body);
+        body.RowStyles.Add(new RowStyle(SizeType.Absolute, 365));
+        body.RowStyles.Add(new RowStyle(SizeType.Absolute, 305));
+        body.RowStyles.Add(new RowStyle(SizeType.Absolute, 296));
+        body.RowStyles.Add(new RowStyle(SizeType.Absolute, 296));
+        body.RowStyles.Add(new RowStyle(SizeType.Absolute, 250));
+        body.RowStyles.Add(new RowStyle(SizeType.Absolute, 210));
+        body.RowStyles.Add(new RowStyle(SizeType.Absolute, 32));
+        _scrollArea.Controls.Add(body);
 
-        body.Controls.Add(CreateMediaCard("01  VIDEO NGUỒN (THEO THỨ TỰ)", _videos, _videoCount, true), 0, 0);
-        body.Controls.Add(CreateMediaCard("02  MP3 (NỐI LIỀN THÀNH 1 AUDIO)", _mp3s, _mp3Count, false), 1, 0);
-        body.Controls.Add(CreateOverlayCard("03  ẢNH 1", _image1Path, _preview1, _corner1, true), 0, 1);
-        body.Controls.Add(CreateOverlayCard("04  ẢNH 2 (KHÔNG BẮT BUỘC)", _image2Path, _preview2, _corner2, false), 1, 1);
-        body.Controls.Add(CreateSettingsCard(), 0, 2);
-        body.SetColumnSpan(body.GetControlFromPosition(0, 2)!, 2);
+        _videoCard = CreateMediaCard("01  VIDEO NGUỒN • THỨ TỰ PHÁT", _videos, _videoCount, true);
+        body.Controls.Add(_videoCard, 0, 0);
+        body.Controls.Add(CreateMediaCard("02  MP3 • NỐI LIỀN THÀNH 1 AUDIO", _mp3s, _mp3Count, false), 1, 0);
 
-        var note = NewLabel("Ảnh 1 mặc định ở góc dưới trái, ảnh 2 ở góc dưới phải. Ảnh giữ nguyên tỉ lệ, được tự thu/phóng và nằm trên cùng trong suốt video.", 10, Muted);
-        note.Margin = new Padding(12, 8, 0, 0);
-        note.AutoSize = true;
-        body.Controls.Add(note, 0, 3);
+        _srtCard = CreateSubtitleCard();
+        body.Controls.Add(_srtCard, 0, 1);
+        body.SetColumnSpan(_srtCard, 2);
+
+        _overlayCard = CreateOverlayCard(_overlaySlots[0]);
+        body.Controls.Add(_overlayCard, 0, 2);
+        body.Controls.Add(CreateOverlayCard(_overlaySlots[1]), 1, 2);
+        body.Controls.Add(CreateOverlayCard(_overlaySlots[2]), 0, 3);
+        body.Controls.Add(CreateOverlayCard(_overlaySlots[3]), 1, 3);
+
+        _previewCard = CreateLayoutPreviewCard();
+        body.Controls.Add(_previewCard, 0, 4);
+        body.SetColumnSpan(_previewCard, 2);
+
+        _settingsCard = CreateSettingsCard();
+        body.Controls.Add(_settingsCard, 0, 5);
+        body.SetColumnSpan(_settingsCard, 2);
+
+        var note = NewLabel("4 Ô KÉO THẢ: Trên trái / Trên phải / Dưới trái / Dưới phải  |  0–4 PNG  |  Text lớp trên cùng  |  1 MP4 theo MP3", 10, Muted);
+        note.Margin = new Padding(12, 2, 0, 0);
+        body.Controls.Add(note, 0, 6);
         body.SetColumnSpan(note, 2);
+        root.Controls.Add(central, 0, 1);
 
         var footer = new TableLayoutPanel
         {
-            Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 3, Padding = new Padding(24, 10, 24, 10),
-            BackColor = CardColor
+            Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 3,
+            Padding = new Padding(23, 11, 24, 12), BackColor = CardColor
         };
         footer.RowStyles.Add(new RowStyle(SizeType.Absolute, 30));
-        footer.RowStyles.Add(new RowStyle(SizeType.Absolute, 26));
+        footer.RowStyles.Add(new RowStyle(SizeType.Absolute, 23));
         footer.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
-        footer.Controls.Add(_status, 0, 0);
         _status.Dock = DockStyle.Fill;
-        _status.TextAlign = ContentAlignment.MiddleLeft;
-        _progress.Minimum = 0;
-        _progress.Maximum = 1000;
-        _progress.Style = ProgressBarStyle.Continuous;
-        _progress.Dock = DockStyle.Fill;
+        footer.Controls.Add(_status, 0, 0);
+        _progress.Minimum = 0; _progress.Maximum = 1000;
+        _progress.Style = ProgressBarStyle.Continuous; _progress.Dock = DockStyle.Fill;
         footer.Controls.Add(_progress, 0, 1);
-
         var buttons = new FlowLayoutPanel
         {
             Dock = DockStyle.Fill, FlowDirection = FlowDirection.RightToLeft,
             WrapContents = false, Padding = new Padding(0, 10, 0, 0)
         };
-        _render.Size = new Size(198, 47);
-        _cancel.Size = new Size(104, 47);
+        _render.Size = new Size(215, 47);
+        _cancel.Size = new Size(108, 47);
         _openFolder.Size = new Size(155, 47);
         _cancel.Enabled = false;
-        buttons.Controls.Add(_render);
-        buttons.Controls.Add(_cancel);
-        buttons.Controls.Add(_openFolder);
-        buttons.Controls.Add(_ffmpegStatus);
+        buttons.Controls.AddRange([_render, _cancel, _openFolder, _ffmpegStatus]);
         _ffmpegStatus.AutoSize = true;
-        _ffmpegStatus.Padding = new Padding(0, 14, 8, 0);
+        _ffmpegStatus.Padding = new Padding(0, 14, 10, 0);
         footer.Controls.Add(buttons, 0, 2);
         root.Controls.Add(footer, 0, 2);
+    }
+
+    private static void AddNav(FlowLayoutPanel menu, string title, Action click)
+    {
+        var item = NewButton(title, false);
+        item.Width = 174; item.Height = 45;
+        item.Font = new Font("Segoe UI", 9, FontStyle.Bold);
+        item.Margin = new Padding(0, 0, 0, 8);
+        item.TextAlign = ContentAlignment.MiddleLeft;
+        item.Click += (_, _) => click();
+        menu.Controls.Add(item);
+    }
+
+    private void JumpTo(Control? card)
+    {
+        if (card is null || _scrollArea is null) return;
+        _scrollArea.ScrollControlIntoView(card);
+    }
+
+    private Panel CreateSubtitleCard()
+    {
+        var card = NewCard();
+        var table = new TableLayoutPanel { Dock = DockStyle.Fill, RowCount = 3, ColumnCount = 1 };
+        table.RowStyles.Add(new RowStyle(SizeType.Absolute, 38));
+        table.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+        table.RowStyles.Add(new RowStyle(SizeType.Absolute, 62));
+        table.Controls.Add(NewLabel("03  PHỤ ĐỀ SRT  /  ĐỒNG BỘ AUDIO MP3", 12, Foreground, true), 0, 0);
+        var inner = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, RowCount = 1 };
+        inner.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 49));
+        inner.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 51));
+        var left = new TableLayoutPanel { Dock = DockStyle.Fill, RowCount = 2 };
+        left.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+        left.RowStyles.Add(new RowStyle(SizeType.Absolute, 43));
+        _srts.Dock = DockStyle.Fill;
+        left.Controls.Add(_srts, 0, 0);
+        var fileBtns = new FlowLayoutPanel { Dock = DockStyle.Fill, Padding = new Padding(0, 7, 0, 0) };
+        var add = NewButton("+ THÊM SRT", true);
+        var remove = NewButton("XÓA CHỌN", false);
+        var up = NewButton("↑", false);
+        var down = NewButton("↓", false);
+        add.Width = 132; remove.Width = 108; up.Width = 38; down.Width = 38;
+        add.Click += (_, _) => ChooseSrtFiles();
+        remove.Click += (_, _) => { foreach (var obj in _srts.SelectedItems.Cast<object>().ToArray()) _srts.Items.Remove(obj); UpdateSrtPreview(); };
+        up.Click += (_, _) => { MoveItem(_srts, -1); UpdateSrtPreview(); };
+        down.Click += (_, _) => { MoveItem(_srts, 1); UpdateSrtPreview(); };
+        fileBtns.Controls.AddRange([add, remove, up, down]);
+        left.Controls.Add(fileBtns, 0, 1);
+        inner.Controls.Add(left, 0, 0);
+
+        var right = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 3, Padding = new Padding(12, 0, 0, 0) };
+        right.RowStyles.Add(new RowStyle(SizeType.Absolute, 45));
+        right.RowStyles.Add(new RowStyle(SizeType.Absolute, 49));
+        right.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+        var options = new FlowLayoutPanel { Dock = DockStyle.Fill, WrapContents = false };
+        options.Controls.Add(NewInlineLabel("Căn theo:"));
+        _srtMode.Items.AddRange(["1 SRT / toàn bộ audio", "1 SRT / mỗi MP3"]);
+        _srtMode.Width = 215; _srtMode.SelectedIndex = 0;
+        options.Controls.Add(_srtMode);
+        options.Controls.Add(NewInlineLabel("Lệch ms:"));
+        _subOffset.BackColor = InputColor; _subOffset.ForeColor = Foreground;
+        options.Controls.Add(_subOffset);
+        right.Controls.Add(options, 0, 0);
+        var style = new FlowLayoutPanel { Dock = DockStyle.Fill, WrapContents = false };
+        _burnSrt.Appearance = Appearance.Normal;
+        _burnSrt.Checked = true; _burnSrt.AutoSize = true;
+        _burnSrt.Text = "Chèn chữ vào video"; _burnSrt.ForeColor = Foreground;
+        _exportSrt.Checked = true; _exportSrt.AutoSize = true;
+        _exportSrt.Text = "Xuất SRT kèm"; _exportSrt.ForeColor = Foreground;
+        _burnSrt.Margin = new Padding(0, 10, 14, 0); _exportSrt.Margin = new Padding(0, 10, 0, 0);
+        style.Controls.AddRange([_burnSrt, _exportSrt]);
+        right.Controls.Add(style, 0, 1);
+        _srtPreview.Dock = DockStyle.Fill;
+        _srtPreview.Multiline = true;
+        _srtPreview.ReadOnly = true;
+        _srtPreview.ScrollBars = ScrollBars.Vertical;
+        _srtPreview.Text = "Chưa có SRT. Bạn có thể xuất video không phụ đề.";
+        right.Controls.Add(_srtPreview, 0, 2);
+        inner.Controls.Add(right, 1, 0);
+        table.Controls.Add(inner, 0, 1);
+        var bottom = new FlowLayoutPanel { Dock = DockStyle.Fill, WrapContents = false, Padding = new Padding(0, 10, 0, 0) };
+        bottom.Controls.Add(NewInlineLabel("Font chữ:"));
+        _subFont.Items.AddRange(["Arial", "Segoe UI", "Tahoma", "Verdana", "Times New Roman"]);
+        _subFont.SelectedIndex = 0; _subFont.Width = 165;
+        bottom.Controls.Add(_subFont);
+        bottom.Controls.Add(NewInlineLabel("Cỡ chữ:"));
+        bottom.Controls.Add(_subFontSize);
+        _srtCount.AutoSize = true; _srtCount.Margin = new Padding(22, 9, 0, 0);
+        bottom.Controls.Add(_srtCount);
+        table.Controls.Add(bottom, 0, 2);
+        card.Controls.Add(table);
+        _editableControls.AddRange([_srts, add, remove, up, down, _srtMode, _subOffset,
+            _burnSrt, _exportSrt, _subFont, _subFontSize]);
+        return card;
+    }
+
+    private void ChooseSrtFiles()
+    {
+        using var picker = new OpenFileDialog
+        {
+            Title = "Chọn phụ đề SRT đã xuất từ TTSS", Multiselect = true,
+            Filter = "Phụ đề SRT|*.srt|Tất cả tệp|*.*"
+        };
+        if (picker.ShowDialog(this) == DialogResult.OK) AddSrtFiles(picker.FileNames);
+    }
+
+    private void AddSrtFiles(IEnumerable<string> files)
+    {
+        var exists = new HashSet<string>(_srts.Items.Cast<SubtitleFile>().Select(x => x.FullPath), StringComparer.OrdinalIgnoreCase);
+        foreach (var file in files)
+        {
+            if (!File.Exists(file) || !Path.GetExtension(file).Equals(".srt", StringComparison.OrdinalIgnoreCase)) continue;
+            var full = Path.GetFullPath(file);
+            if (!exists.Add(full)) continue;
+            try
+            {
+                var cues = SubtitleComposer.Parse(full);
+                _srts.Items.Add(new SubtitleFile(full, cues.Count));
+            }
+            catch (Exception ex) when (ex is InvalidDataException or IOException)
+            {
+                MessageBox.Show(this, ex.Message, "SRT không hợp lệ", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            }
+        }
+        if (_srts.Items.Count > 1 && _srts.Items.Count == _mp3s.Items.Count)
+            _srtMode.SelectedIndex = 1;
+        UpdateSrtPreview();
+    }
+
+    private void UpdateSrtPreview()
+    {
+        _srtCount.Text = $"{_srts.Items.Count} file SRT";
+        if (_srts.Items.Count == 0)
+        {
+            _srtPreview.Text = "Chưa có SRT. Có thể xuất video không phụ đề.";
+            RefreshLayoutPreview();
+            return;
+        }
+        try
+        {
+            var file = _srts.SelectedItem as SubtitleFile ?? (SubtitleFile)_srts.Items[0];
+            var cues = SubtitleComposer.Parse(file.FullPath);
+            _srtPreview.Text = string.Join(Environment.NewLine + Environment.NewLine,
+                cues.Take(3).Select(x => $"{x.Start:hh\\:mm\\:ss\\.fff} → {x.End:hh\\:mm\\:ss\\.fff}  {x.Text.Replace("\n", " / ")}"));
+        }
+        catch (Exception ex) { _srtPreview.Text = ex.Message; }
+        RefreshLayoutPreview();
     }
 
     private Panel CreateMediaCard(string headline, ListBox list, Label count, bool isVideo)
@@ -264,55 +485,387 @@ public sealed class MainForm : Form
         finally { _videos.EndUpdate(); }
     }
 
-    private Panel CreateOverlayCard(string title, TextBox pathBox,
-        PictureBox preview, ComboBox cornerBox, bool first)
+    // Each fixed corner is its own drop zone. Drop a file on the image, path, heading,
+    // button area or on the card background; it only replaces that corner's image.
+    /// <summary>
+    /// v3 UI: four independent cards. All controls use a grid layout instead of
+    /// a single overcrowded FlowLayoutPanel, so position inputs are not clipped.
+    /// </summary>
+    private Panel CreateOverlayCard(OverlaySlot slot)
     {
         var panel = NewCard();
-        var layout = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, RowCount = 1 };
-        layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 160));
+        panel.Padding = new Padding(14, 12, 14, 12);
+        var layout = new TableLayoutPanel
+        {
+            Dock = DockStyle.Fill, ColumnCount = 2, RowCount = 1, Margin = Padding.Empty
+        };
+        layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 130));
         layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-        layout.Controls.Add(preview, 0, 0);
+        slot.Thumbnail.Dock = DockStyle.Fill;
+        slot.Thumbnail.Cursor = Cursors.Hand;
+        slot.Thumbnail.Margin = new Padding(0, 0, 10, 0);
+        _tooltip.SetToolTip(slot.Thumbnail, "Kéo PNG/JPG/WebP vào ô này: " + slot.Title);
+        layout.Controls.Add(slot.Thumbnail, 0, 0);
+
         var controls = new TableLayoutPanel
         {
-            Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 4,
-            Padding = new Padding(10, 0, 0, 0)
+            Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 6,
+            Padding = Padding.Empty, Margin = Padding.Empty
         };
-        controls.RowStyles.Add(new RowStyle(SizeType.Absolute, 34));
-        controls.RowStyles.Add(new RowStyle(SizeType.Absolute, 40));
-        controls.RowStyles.Add(new RowStyle(SizeType.Absolute, 44));
-        controls.RowStyles.Add(new RowStyle(SizeType.Absolute, 50));
-        controls.Controls.Add(NewLabel(title, 11, Foreground, true), 0, 0);
-        pathBox.Dock = DockStyle.Fill;
-        pathBox.ReadOnly = true;
-        pathBox.PlaceholderText = "Chưa chọn ảnh...";
-        controls.Controls.Add(pathBox, 0, 1);
-        var row = new FlowLayoutPanel { Dock = DockStyle.Fill, FlowDirection = FlowDirection.LeftToRight };
+        controls.RowStyles.Add(new RowStyle(SizeType.Absolute, 31));
+        controls.RowStyles.Add(new RowStyle(SizeType.Absolute, 39));
+        controls.RowStyles.Add(new RowStyle(SizeType.Absolute, 43));
+        controls.RowStyles.Add(new RowStyle(SizeType.Absolute, 42));
+        controls.RowStyles.Add(new RowStyle(SizeType.Absolute, 42));
+        controls.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+        controls.Controls.Add(NewLabel(slot.Title, 11, Foreground, true), 0, 0);
+        slot.PathBox.Dock = DockStyle.Fill;
+        slot.PathBox.Margin = new Padding(0, 2, 0, 7);
+        slot.PathBox.ReadOnly = true;
+        slot.PathBox.PlaceholderText = "Chọn ảnh hoặc kéo thả tại đây";
+        controls.Controls.Add(slot.PathBox, 0, 1);
+
+        var buttonRow = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, RowCount = 1, Margin = Padding.Empty };
+        buttonRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 54));
+        buttonRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 46));
         var browse = NewButton("CHỌN ẢNH", true);
         var clear = NewButton("BỎ ẢNH", false);
-        browse.Width = 113;
-        clear.Width = 100;
-        browse.Click += (_, _) => ChooseImage(pathBox, preview);
-        clear.Click += (_, _) => ClearImage(pathBox, preview);
-        row.Controls.AddRange([browse, clear]);
-        controls.Controls.Add(row, 0, 2);
-        var cornerRow = new FlowLayoutPanel { Dock = DockStyle.Fill };
-        var cornerLabel = NewLabel("Góc đặt:", 10, Muted);
-        cornerLabel.Padding = new Padding(0, 7, 0, 0);
-        cornerLabel.AutoSize = true;
-        cornerBox.Width = 170;
-        cornerBox.Items.AddRange([
-            new CornerOption(Corner.BottomLeft, "Dưới trái"),
-            new CornerOption(Corner.BottomRight, "Dưới phải"),
-            new CornerOption(Corner.TopLeft, "Trên trái"),
-            new CornerOption(Corner.TopRight, "Trên phải")
-        ]);
-        cornerBox.SelectedIndex = first ? 0 : 1;
-        cornerRow.Controls.AddRange([cornerLabel, cornerBox]);
-        controls.Controls.Add(cornerRow, 0, 3);
+        browse.Dock = DockStyle.Fill; browse.Margin = new Padding(0, 0, 7, 7);
+        clear.Dock = DockStyle.Fill; clear.Margin = new Padding(0, 0, 0, 7);
+        browse.Click += (_, _) => ChooseOverlayImage(slot);
+        clear.Click += (_, _) => ClearOverlayImage(slot);
+        buttonRow.Controls.Add(browse, 0, 0);
+        buttonRow.Controls.Add(clear, 1, 0);
+        controls.Controls.Add(buttonRow, 0, 2);
+
+        var sizeRow = CreateOverlayNumberRow("Rộng %", slot.WidthBox, "Cao %", slot.HeightBox);
+        controls.Controls.Add(sizeRow, 0, 3);
+        var positionRow = CreateOverlayNumberRow("Ngang %", slot.OffsetXBox, "Dọc %", slot.OffsetYBox);
+        controls.Controls.Add(positionRow, 0, 4);
+
+        var hint = NewLabel("Vị trí tính từ góc đang chọn • Giữ ảnh trong khung hình", 8, Muted);
+        hint.AutoEllipsis = true;
+        hint.Dock = DockStyle.Fill;
+        controls.Controls.Add(hint, 0, 5);
         layout.Controls.Add(controls, 1, 0);
         panel.Controls.Add(layout);
-        _editableControls.AddRange([browse, clear, cornerBox]);
+
+        foreach (var number in new[] { slot.WidthBox, slot.HeightBox, slot.OffsetXBox, slot.OffsetYBox })
+        {
+            number.ValueChanged += (_, _) => RefreshLayoutPreview();
+            number.Margin = new Padding(2, 4, 5, 4);
+        }
+        _tooltip.SetToolTip(slot.WidthBox, "Rộng tối đa từ 20% tới 100% khung video, giữ tỷ lệ ảnh gốc.");
+        _tooltip.SetToolTip(slot.HeightBox, "Cao tối đa từ 20% tới 100% khung video, giữ tỷ lệ ảnh gốc.");
+        _tooltip.SetToolTip(slot.OffsetXBox, "Di chuyển ngang (0–100%) từ mép của góc chọn; không thể tràn khỏi video.");
+        _tooltip.SetToolTip(slot.OffsetYBox, "Di chuyển dọc (0–100%) từ mép của góc chọn; không thể tràn khỏi video.");
+        EnableOverlayDrop(panel, slot);
+        _editableControls.AddRange([browse, clear, slot.WidthBox, slot.HeightBox, slot.OffsetXBox, slot.OffsetYBox]);
         return panel;
+    }
+
+    private static TableLayoutPanel CreateOverlayNumberRow(string label1, NumericUpDown value1,
+        string label2, NumericUpDown value2)
+    {
+        var row = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 4, RowCount = 1, Margin = Padding.Empty };
+        row.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 27));
+        row.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 23));
+        row.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 27));
+        row.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 23));
+        var name1 = NewLabel(label1, 9, Muted);
+        var name2 = NewLabel(label2, 9, Muted);
+        name1.AutoEllipsis = true;
+        name2.AutoEllipsis = true;
+        name1.Margin = Padding.Empty; name2.Margin = Padding.Empty;
+        value1.Dock = DockStyle.Fill;
+        value2.Dock = DockStyle.Fill;
+        value1.Width = 60; value2.Width = 60;
+        row.Controls.Add(name1, 0, 0);
+        row.Controls.Add(value1, 1, 0);
+        row.Controls.Add(name2, 2, 0);
+        row.Controls.Add(value2, 3, 0);
+        return row;
+    }
+
+    private static bool TryGetImageFromDrop(IDataObject? data, out string file)
+    {
+        file = "";
+        if (data?.GetData(DataFormats.FileDrop) is not string[] paths) return false;
+        var valid = paths.FirstOrDefault(p => File.Exists(p) && IsSupportedOverlayImage(p));
+        if (valid is null) return false;
+        file = valid;
+        return true;
+    }
+
+    private static bool IsSupportedOverlayImage(string path) =>
+        new[] { ".png", ".jpg", ".jpeg", ".bmp", ".webp" }
+            .Contains(System.IO.Path.GetExtension(path), StringComparer.OrdinalIgnoreCase);
+
+    private void EnableOverlayDrop(Control control, OverlaySlot slot)
+    {
+        control.AllowDrop = true;
+        control.DragEnter += (sender, e) => e.Effect = !_rendering && TryGetImageFromDrop(e.Data, out _)
+            ? DragDropEffects.Copy : DragDropEffects.None;
+        control.DragDrop += (_, e) =>
+        {
+            if (_rendering || !TryGetImageFromDrop(e.Data, out var file)) return;
+            SetOverlayImage(slot, file);
+        };
+        foreach (Control child in control.Controls)
+            EnableOverlayDrop(child, slot);
+    }
+
+    private void SetOverlayImage(OverlaySlot slot, string file)
+    {
+        if (!File.Exists(file) || !IsSupportedOverlayImage(file)) return;
+        slot.PathBox.Text = Path.GetFullPath(file);
+        LoadPreview(file, slot.Thumbnail);
+        RefreshLayoutPreview();
+        _status.Text = $"Đã đặt {Path.GetFileName(file)} vào {slot.Title}.";
+    }
+
+    private void ChooseOverlayImage(OverlaySlot slot)
+    {
+        using var picker = new OpenFileDialog
+        {
+            Title = $"Chọn ảnh cho {slot.Title}",
+            Filter = "Ảnh|*.png;*.jpg;*.jpeg;*.bmp;*.webp|Tất cả tệp|*.*"
+        };
+        if (picker.ShowDialog(this) == DialogResult.OK)
+        {
+            if (IsSupportedOverlayImage(picker.FileName)) SetOverlayImage(slot, picker.FileName);
+            else MessageBox.Show(this, "Chỉ hỗ trợ PNG, JPG, JPEG, BMP, WebP.", "Định dạng ảnh", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+        }
+    }
+
+    private void ClearOverlayImage(OverlaySlot slot)
+    {
+        ClearImage(slot.PathBox, slot.Thumbnail);
+        RefreshLayoutPreview();
+    }
+
+    private Panel CreateLayoutPreviewCard()
+    {
+        var panel = NewCard();
+        var table = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, RowCount = 1 };
+        table.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 65));
+        table.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 35));
+        _layoutPreview.Dock = DockStyle.Fill;
+        _layoutPreview.AllowDrop = true;
+        _layoutPreview.Margin = new Padding(0, 0, 10, 0);
+        _tooltip.SetToolTip(_layoutPreview, "Thả ảnh vào từng phần tư khung preview để gán trực tiếp cho góc tương ứng.");
+        table.Controls.Add(_layoutPreview, 0, 0);
+
+        var right = new TableLayoutPanel { Dock = DockStyle.Fill, RowCount = 6, ColumnCount = 1 };
+        right.RowStyles.Add(new RowStyle(SizeType.Absolute, 34));
+        right.RowStyles.Add(new RowStyle(SizeType.Absolute, 54));
+        right.RowStyles.Add(new RowStyle(SizeType.Absolute, 54));
+        right.RowStyles.Add(new RowStyle(SizeType.Absolute, 54));
+        right.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+        right.RowStyles.Add(new RowStyle(SizeType.Absolute, 42));
+        right.Controls.Add(NewLabel("05  PREVIEW BỐ CỤC (16:9)", 11, Foreground, true), 0, 0);
+        right.Controls.Add(NewLabel("- Kéo thả ảnh vào 4 ô hoặc 4 phần tư của preview.\n- Text/subtitle sẽ nằm lớp trên cùng.", 9, Muted), 0, 1);
+        right.Controls.Add(NewLabel("- Mỗi ảnh chỉnh riêng kích thước và vị trí X/Y.\n- Ảnh luôn được giới hạn trong video, không bị tràn ra ngoài.", 9, Muted), 0, 2);
+        right.Controls.Add(NewLabel("- Khung mô phỏng đúng tỷ lệ 16:9 và tọa độ ảnh.\n- Kiểu chữ xem trước có thể khác FFmpeg/libass đôi chút.", 9, Muted), 0, 3);
+        var refreshRow = new FlowLayoutPanel { Dock = DockStyle.Fill, Padding = new Padding(0, 10, 0, 0) };
+        var refresh = NewButton("LÀM MỚI PREVIEW", true);
+        refresh.Width = 168;
+        refresh.Click += (_, _) => RefreshLayoutPreview();
+        refreshRow.Controls.Add(refresh);
+        right.Controls.Add(refreshRow, 0, 5);
+        _editableControls.Add(refresh);
+
+        table.Controls.Add(right, 1, 0);
+        panel.Controls.Add(table);
+        return panel;
+    }
+
+    private Rectangle GetPreviewImageRect()
+    {
+        var picture = _layoutPreview;
+        if (picture.Image is null || picture.ClientSize.Width <= 0 || picture.ClientSize.Height <= 0)
+            return Rectangle.Empty;
+        var scale = Math.Min((double)picture.ClientSize.Width / picture.Image.Width,
+            (double)picture.ClientSize.Height / picture.Image.Height);
+        var width = Math.Max(1, (int)Math.Round(picture.Image.Width * scale));
+        var height = Math.Max(1, (int)Math.Round(picture.Image.Height * scale));
+        return new Rectangle((picture.ClientSize.Width - width) / 2,
+            (picture.ClientSize.Height - height) / 2, width, height);
+    }
+
+    private void RefreshLayoutPreview()
+    {
+        try
+        {
+            var (w, h) = _resolution.SelectedIndex switch
+            {
+                0 => (1280, 720),
+                2 => (3840, 2160),
+                _ => (1920, 1080)
+            };
+            using var bmp = new Bitmap(1280, 720);
+            using var g = Graphics.FromImage(bmp);
+            g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+            g.Clear(Color.FromArgb(8, 12, 18));
+            using var bgBrush = new LinearGradientBrush(new Rectangle(0, 0, bmp.Width, bmp.Height),
+                Color.FromArgb(30, 45, 65), Color.FromArgb(10, 16, 24), 20f);
+            g.FillRectangle(bgBrush, 0, 0, bmp.Width, bmp.Height);
+            var stage = new Rectangle(0, 0, bmp.Width, bmp.Height);
+            using (var stageBrush = new SolidBrush(Color.FromArgb(22, 30, 44)))
+                g.FillRectangle(stageBrush, stage);
+            using (var pen = new Pen(Color.FromArgb(70, 93, 118), 2))
+                g.DrawRectangle(pen, stage);
+
+            using (var labelBrush = new SolidBrush(Color.FromArgb(160, 205, 220, 240)))
+            using (var labelFont = new Font("Segoe UI", 14, FontStyle.Bold))
+            {
+                g.DrawString($"BỐ CỤC XUẤT {w}x{h} | Kích thước và vị trí độc lập cho từng góc", labelFont, labelBrush, 16, 10);
+            }
+
+            foreach (var slot in _overlaySlots)
+            {
+                if (string.IsNullOrWhiteSpace(slot.PathBox.Text))
+                    DrawEmptyCornerGuide(g, stage, slot.Corner);
+                else
+                    DrawOverlay(g, stage, slot);
+            }
+            DrawSubtitlePreview(g, stage);
+
+            var old = _layoutPreview.Image;
+            _layoutPreview.Image = new Bitmap(bmp);
+            old?.Dispose();
+        }
+        catch
+        {
+            // Preview is best-effort only.
+        }
+    }
+
+    private static void DrawEmptyCornerGuide(Graphics g, Rectangle stage, Corner corner)
+    {
+        const int guideWidth = 156, guideHeight = 74, inset = 12;
+        var x = corner is Corner.TopLeft or Corner.BottomLeft
+            ? stage.Left + inset : stage.Right - guideWidth - inset;
+        var y = corner is Corner.TopLeft or Corner.TopRight
+            ? stage.Top + 28 : stage.Bottom - guideHeight - inset;
+        var bounds = new Rectangle(x, y, guideWidth, guideHeight);
+        using var border = new Pen(Color.FromArgb(90, 70, 185, 175), 2) { DashStyle = DashStyle.Dash };
+        using var brush = new SolidBrush(Color.FromArgb(180, 153, 196, 201));
+        using var font = new Font("Segoe UI", 11, FontStyle.Regular);
+        g.DrawRectangle(border, bounds);
+        var title = corner switch
+        {
+            Corner.TopLeft => "TRÊN TRÁI",
+            Corner.TopRight => "TRÊN PHẢI",
+            Corner.BottomLeft => "DƯỚI TRÁI",
+            _ => "DƯỚI PHẢI"
+        };
+        using var format = new StringFormat
+        {
+            Alignment = StringAlignment.Center,
+            LineAlignment = StringAlignment.Center
+        };
+        g.DrawString("+ THẢ ẢNH\n" + title, font, brush, bounds, format);
+    }
+
+    private void DrawOverlay(Graphics g, Rectangle stage, OverlaySlot slot)
+    {
+        var path = slot.PathBox.Text;
+        var corner = slot.Corner;
+        if (string.IsNullOrWhiteSpace(path) || !File.Exists(path)) return;
+        try
+        {
+            using var fs = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+            using var image = Image.FromStream(fs);
+            var maxW = Math.Max(1, stage.Width * (int)slot.WidthBox.Value / 100);
+            var maxH = Math.Max(1, stage.Height * (int)slot.HeightBox.Value / 100);
+            var scale = Math.Min((double)maxW / image.Width, (double)maxH / image.Height);
+            var width = Math.Clamp((int)Math.Round(image.Width * scale), 1, stage.Width);
+            var height = Math.Clamp((int)Math.Round(image.Height * scale), 1, stage.Height);
+            var offsetX = Math.Max(0, stage.Width * (int)slot.OffsetXBox.Value / 100);
+            var offsetY = Math.Max(0, stage.Height * (int)slot.OffsetYBox.Value / 100);
+            var x = corner is Corner.TopLeft or Corner.BottomLeft
+                ? stage.Left + Math.Clamp(offsetX, 0, stage.Width - width)
+                : stage.Right - width - Math.Clamp(offsetX, 0, stage.Width - width);
+            var y = corner is Corner.TopLeft or Corner.TopRight
+                ? stage.Top + Math.Clamp(offsetY, 0, stage.Height - height)
+                : stage.Bottom - height - Math.Clamp(offsetY, 0, stage.Height - height);
+            g.DrawImage(image, new Rectangle(x, y, width, height));
+            using var pen = new Pen(Color.FromArgb(120, 255, 255, 255), 1);
+            g.DrawRectangle(pen, x, y, width, height);
+        }
+        catch { }
+    }
+
+    private void DrawSubtitlePreview(Graphics g, Rectangle stage)
+    {
+        if (!_burnSrt.Checked || _srts.Items.Count == 0) return;
+        var text = GetPreviewSubtitleText();
+        var fontSize = Math.Max(16, Math.Min(34, (int)_subFontSize.Value));
+        using var font = new Font(_subFont.SelectedItem?.ToString() ?? "Arial", fontSize, FontStyle.Bold);
+        var rect = new RectangleF(stage.Left + 40, stage.Bottom - 115, stage.Width - 80, 70);
+        using var bg = new SolidBrush(Color.FromArgb(120, 0, 0, 0));
+        g.FillRectangle(bg, Rectangle.Round(rect));
+        using var brush = new SolidBrush(Color.White);
+        using var outline = new Pen(Color.Black, 4) { LineJoin = System.Drawing.Drawing2D.LineJoin.Round };
+        using var path = new System.Drawing.Drawing2D.GraphicsPath();
+        var format = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center };
+        path.AddString(text, font.FontFamily, (int)font.Style, g.DpiY * font.Size / 72, rect, format);
+        g.DrawPath(outline, path);
+        g.FillPath(brush, path);
+    }
+
+    private string GetPreviewSubtitleText()
+    {
+        try
+        {
+            if (_srts.Items.Count > 0)
+            {
+                var file = _srts.SelectedItem as SubtitleFile ?? (SubtitleFile)_srts.Items[0];
+                var cues = SubtitleComposer.Parse(file.FullPath);
+                var cue = cues.FirstOrDefault();
+                if (cue is not null && !string.IsNullOrWhiteSpace(cue.Text))
+                    return cue.Text.Replace("\n", " ").Trim();
+            }
+        }
+        catch { }
+        return "Chuyện này người chưa biết sẽ hiển thị trên cùng";
+    }
+
+    private void LoadWindowIcon()
+    {
+        var iconPath = Path.Combine(AppContext.BaseDirectory, "Assets", "software-icon.ico");
+        if (!File.Exists(iconPath)) return;
+        try
+        {
+            using var fileIcon = new Icon(iconPath);
+            Icon = (Icon)fileIcon.Clone();
+        }
+        catch (Exception ex) when (ex is IOException or ArgumentException)
+        {
+            // Icon not essential for rendering; allow the editor to start.
+        }
+    }
+
+    private void TryLoadAppLogo(PictureBox box)
+    {
+        var candidates = new[]
+        {
+            Path.Combine(AppContext.BaseDirectory, "Assets", "software-logo.png"),
+            Path.Combine(AppContext.BaseDirectory, "software-logo.png")
+        };
+        foreach (var file in candidates)
+        {
+            if (!File.Exists(file)) continue;
+            try
+            {
+                using var fs = new FileStream(file, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+                using var image = Image.FromStream(fs);
+                box.Image = new Bitmap(image);
+                return;
+            }
+            catch { }
+        }
     }
 
     private Panel CreateSettingsCard()
@@ -323,7 +876,7 @@ public sealed class MainForm : Form
         table.RowStyles.Add(new RowStyle(SizeType.Absolute, 39));
         table.RowStyles.Add(new RowStyle(SizeType.Absolute, 52));
         table.RowStyles.Add(new RowStyle(SizeType.Absolute, 44));
-        table.Controls.Add(NewLabel("05  CẤU HÌNH XUẤT VIDEO", 11, Foreground, true), 0, 0);
+        table.Controls.Add(NewLabel("06  CẤU HÌNH XUẤT VIDEO", 11, Foreground, true), 0, 0);
 
         var folderRow = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 3 };
         folderRow.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 121));
@@ -357,12 +910,6 @@ public sealed class MainForm : Form
         optionsRow.Controls.Add(_resolution);
         optionsRow.Controls.Add(NewInlineLabel("Mã hóa:"));
         optionsRow.Controls.Add(_encoder);
-        optionsRow.Controls.Add(NewInlineLabel("Rộng ảnh %:"));
-        optionsRow.Controls.Add(_overlayWidth);
-        optionsRow.Controls.Add(NewInlineLabel("Cao ảnh %:"));
-        optionsRow.Controls.Add(_overlayHeight);
-        optionsRow.Controls.Add(NewInlineLabel("Lề %:"));
-        optionsRow.Controls.Add(_margin);
         table.Controls.Add(optionsRow, 0, 2);
 
         var autoLoopNote = NewLabel("TỰ ĐỘNG: Nối toàn bộ video, lặp từ Video 1 nếu thiếu; độ dài MP4 = tổng MP3 đã nối.", 10, Muted);
@@ -370,8 +917,7 @@ public sealed class MainForm : Form
         autoLoopNote.Padding = new Padding(0, 5, 0, 0);
         table.Controls.Add(autoLoopNote, 0, 3);
         panel.Controls.Add(table);
-        _editableControls.AddRange([_folderPath, browse, _resolution, _encoder,
-            _overlayWidth, _overlayHeight, _margin]);
+        _editableControls.AddRange([_folderPath, browse, _resolution, _encoder]);
         return panel;
     }
 
@@ -385,13 +931,44 @@ public sealed class MainForm : Form
         _openFolder.Click += (_, _) => OpenFolder();
         ConfigureDragDrop(_videos, true);
         ConfigureDragDrop(_mp3s, false);
+        _srts.SelectedIndexChanged += (_, _) => { UpdateSrtPreview(); RefreshLayoutPreview(); };
+        _srts.AllowDrop = true;
+        _srts.DragEnter += (_, e) => e.Effect = e.Data?.GetDataPresent(DataFormats.FileDrop) == true
+            ? DragDropEffects.Copy : DragDropEffects.None;
+        _srts.DragDrop += (_, e) =>
+        {
+            if (e.Data?.GetData(DataFormats.FileDrop) is string[] files) AddSrtFiles(files);
+        };
+        _tooltip.SetToolTip(_srts, "Kéo thả SRT. Chế độ Theo từng MP3: mỗi SRT tương ứng một MP3 cùng thứ tự.");
+        _tooltip.SetToolTip(_subOffset, "Dịch tất cả phụ đề sớm/muộn theo mili giây, ví dụ -300 ms.");
         _tooltip.SetToolTip(_videos, "Kéo thả video. Chọn 1 hoặc nhiều dòng, chọn tốc độ rồi nhấn ÁP DỤNG; dùng ↑ ↓ để đổi thứ tự.");
         _tooltip.SetToolTip(_selectedVideoSpeed, "0.4× = 2.5 lần thời lượng; 0.5× = 2 lần; 2× = còn một nửa.");
         _tooltip.SetToolTip(_muteSourceAudio, "Mặc định tắt tiếng gốc. Bấm để giữ âm gốc ở 20% và trộn với MP3; video không có âm vẫn xuất được.");
         _tooltip.SetToolTip(_mp3s, "Có thể kéo thả nhiều MP3. Nối chúng theo thứ tự thành một audio, xuất đúng một MP4.");
-        _tooltip.SetToolTip(_overlayWidth, "Giới hạn chiều rộng ảnh theo phần trăm chiều rộng video.");
-        _tooltip.SetToolTip(_overlayHeight, "Giới hạn chiều cao ảnh theo phần trăm chiều cao video.");
+        _layoutPreview.DragEnter += (sender, e) =>
+            e.Effect = !_rendering && TryGetImageFromDrop(e.Data, out _)
+                ? DragDropEffects.Copy : DragDropEffects.None;
+        _layoutPreview.DragDrop += (_, e) =>
+        {
+            if (_rendering || !TryGetImageFromDrop(e.Data, out var file)) return;
+            var clientPoint = _layoutPreview.PointToClient(new Point(e.X, e.Y));
+            var imageRect = GetPreviewImageRect();
+            if (imageRect.Width <= 0 || !imageRect.Contains(clientPoint)) return;
+            var left = clientPoint.X < imageRect.Left + imageRect.Width / 2;
+            var top = clientPoint.Y < imageRect.Top + imageRect.Height / 2;
+            var corner = top
+                ? (left ? Corner.TopLeft : Corner.TopRight)
+                : (left ? Corner.BottomLeft : Corner.BottomRight);
+            var slot = _overlaySlots.First(x => x.Corner == corner);
+            SetOverlayImage(slot, file);
+        };
+        _resolution.SelectedIndexChanged += (_, _) => RefreshLayoutPreview();
+        _burnSrt.CheckedChanged += (_, _) => RefreshLayoutPreview();
+        _subFont.SelectedIndexChanged += (_, _) => RefreshLayoutPreview();
+        _subFontSize.ValueChanged += (_, _) => RefreshLayoutPreview();
+        _srtMode.SelectedIndexChanged += (_, _) => RefreshLayoutPreview();
         FormClosing += OnFormClosing;
+        RefreshLayoutPreview();
     }
 
     private void SyncSpeedSelection()
@@ -458,6 +1035,7 @@ public sealed class MainForm : Form
         }
         finally { list.EndUpdate(); }
         UpdateCounts();
+        RefreshLayoutPreview();
     }
 
     private void RemoveSelected(bool isVideo)
@@ -466,6 +1044,7 @@ public sealed class MainForm : Form
         foreach (var item in list.SelectedItems.Cast<object>().ToArray())
             list.Items.Remove(item);
         UpdateCounts();
+        RefreshLayoutPreview();
     }
 
     private static void MoveItem(ListBox list, int direction)
@@ -554,10 +1133,9 @@ public sealed class MainForm : Form
             .Select(x => new VideoClipOption(x.FullPath, x.PlaybackSpeed)).ToArray();
         var mp3s = _mp3s.Items.Cast<MediaFile>().Select(x => x.FullPath).ToArray();
         var overlays = new List<OverlayOption>();
-        if (!string.IsNullOrWhiteSpace(_image1Path.Text))
-            overlays.Add(new OverlayOption(_image1Path.Text, ((CornerOption)_corner1.SelectedItem!).Value));
-        if (!string.IsNullOrWhiteSpace(_image2Path.Text))
-            overlays.Add(new OverlayOption(_image2Path.Text, ((CornerOption)_corner2.SelectedItem!).Value));
+        foreach (var slot in _overlaySlots)
+            if (!string.IsNullOrWhiteSpace(slot.PathBox.Text))
+                overlays.Add(new OverlayOption(slot.PathBox.Text, slot.Corner, (int)slot.WidthBox.Value, (int)slot.HeightBox.Value, (int)slot.OffsetXBox.Value, (int)slot.OffsetYBox.Value));
 
         var (w, h) = _resolution.SelectedIndex switch
         {
@@ -565,10 +1143,16 @@ public sealed class MainForm : Form
             2 => (3840, 2160),
             _ => (1920, 1080)
         };
+        SubtitleOptions? subtitles = null;
+        if (_srts.Items.Count > 0)
+            subtitles = new SubtitleOptions(
+                _srts.Items.Cast<SubtitleFile>().Select(x => x.FullPath).ToArray(),
+                _srtMode.SelectedIndex == 1 ? SubtitleImportMode.OneSrtPerMp3 : SubtitleImportMode.GlobalTimeline,
+                _burnSrt.Checked, _exportSrt.Checked, (int)_subOffset.Value,
+                _subFont.SelectedItem?.ToString() ?? "Arial", (int)_subFontSize.Value);
         return new RenderOptions(videos, mp3s, overlays, _folderPath.Text.Trim(),
-            w, h, 30, (int)_overlayWidth.Value, (int)_overlayHeight.Value,
-            (int)_margin.Value, _muteSourceAudio.Checked,
-            _encoder.SelectedIndex == 1 ? VideoEncoder.Nvenc : VideoEncoder.X264);
+            w, h, 30, _muteSourceAudio.Checked,
+            _encoder.SelectedIndex == 1 ? VideoEncoder.Nvenc : VideoEncoder.X264, subtitles);
     }
 
     private async Task StartRenderAsync()
@@ -598,7 +1182,8 @@ public sealed class MainForm : Form
             {
                 _status.Text = $"Đã xuất 1 file MP4: {Path.GetFileName(output)}";
                 MessageBox.Show(this, "Đã xuất 1 video duy nhất:\n\n" +
-                    output,
+                    output + (File.Exists(Path.ChangeExtension(output, ".srt"))
+                        ? "\n\nKèm file SRT đồng bộ: " + Path.ChangeExtension(output, ".srt") : ""),
                     "Hoàn thành", MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
         }
@@ -636,6 +1221,7 @@ public sealed class MainForm : Form
     {
         _videoCount.Text = $"{_videos.Items.Count} video";
         _mp3Count.Text = $"{_mp3s.Items.Count} MP3";
+        _srtCount.Text = $"{_srts.Items.Count} SRT";
     }
 
     private void OpenFolder()
@@ -666,14 +1252,15 @@ public sealed class MainForm : Form
         }
         else
         {
-            _preview1.Image?.Dispose();
-            _preview2.Image?.Dispose();
+            foreach (var slot in _overlaySlots)
+                slot.Thumbnail.Image?.Dispose();
+            _layoutPreview.Image?.Dispose();
         }
     }
 
-    private static Panel NewCard() => new()
+    private static Panel NewCard() => new StudioCard()
     {
-        Dock = DockStyle.Fill, Padding = new Padding(16, 13, 16, 12),
+        Dock = DockStyle.Fill, Padding = new Padding(18, 15, 18, 13),
         Margin = new Padding(7), BackColor = CardColor
     };
 
@@ -726,13 +1313,14 @@ public sealed class MainForm : Form
         Font = new Font("Segoe UI", 10)
     };
 
-    private static Button NewButton(string text, bool primary) => new()
+    private static Button NewButton(string text, bool primary) => new StudioButton()
     {
         Text = text, Height = 34, Width = 120,
         BackColor = primary ? Accent : InputColor, ForeColor = Color.White,
         FlatStyle = FlatStyle.Flat, Cursor = Cursors.Hand,
         Font = new Font("Segoe UI", 9, FontStyle.Bold),
-        Margin = new Padding(0, 0, 8, 0), UseVisualStyleBackColor = false
+        Margin = new Padding(0, 0, 8, 0), UseVisualStyleBackColor = false,
+        FlatAppearance = { BorderSize = 0, MouseOverBackColor = Color.FromArgb(50, 117, 125) }
     };
 
     private sealed record MediaFile(string FullPath, bool IsVideo, double PlaybackSpeed = 1.0)
@@ -742,13 +1330,15 @@ public sealed class MainForm : Form
             : Path.GetFileName(FullPath);
     }
 
+    private sealed record SubtitleFile(string FullPath, int Cues)
+    {
+        public override string ToString() => $"{Path.GetFileName(FullPath)}  •  {Cues} câu";
+    }
+
     private sealed record SpeedOption(double Value)
     {
         public override string ToString() => PlaybackSpeeds.Format(Value);
     }
 
-    private sealed record CornerOption(Corner Value, string Display)
-    {
-        public override string ToString() => Display;
-    }
+    private sealed record OverlaySlot(Corner Corner, string Title, TextBox PathBox, PictureBox Thumbnail, NumericUpDown WidthBox, NumericUpDown HeightBox, NumericUpDown OffsetXBox, NumericUpDown OffsetYBox);
 }
