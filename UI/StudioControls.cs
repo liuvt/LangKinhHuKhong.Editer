@@ -2,7 +2,7 @@ using System.Drawing.Drawing2D;
 
 namespace LangKinhHuKhong.Editer.UI;
 
-/// <summary>Rounded dark panels/buttons for the TTSS-inspired studio theme.</summary>
+/// <summary>Rounded panels/buttons for the bright editor theme.</summary>
 internal static class StudioShape
 {
     public static GraphicsPath Rounded(Rectangle bounds, int radius)
@@ -42,7 +42,7 @@ internal sealed class StudioCard : Panel
     {
         base.OnPaint(e);
         e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
-        using var pen = new Pen(Color.FromArgb(53, 71, 91), 1);
+        using var pen = new Pen(Color.FromArgb(219, 191, 167), 1);
         using var path = StudioShape.Rounded(new Rectangle(0, 0, Width - 1, Height - 1), 13);
         e.Graphics.DrawPath(pen, path);
     }

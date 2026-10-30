@@ -6,12 +6,12 @@ namespace LangKinhHuKhong.Editer.UI;
 
 public sealed class MainForm : Form
 {
-    private static readonly Color Background = Color.FromArgb(13, 19, 30);
-    private static readonly Color CardColor = Color.FromArgb(24, 33, 48);
-    private static readonly Color InputColor = Color.FromArgb(34, 45, 63);
-    private static readonly Color Foreground = Color.FromArgb(242, 246, 253);
-    private static readonly Color Muted = Color.FromArgb(165, 180, 200);
-    private static readonly Color Accent = Color.FromArgb(33, 185, 171);
+    private static readonly Color Background = Color.FromArgb(244, 238, 231);
+    private static readonly Color CardColor = Color.FromArgb(250, 247, 242);
+    private static readonly Color InputColor = Color.FromArgb(242, 236, 228);
+    private static readonly Color Foreground = Color.FromArgb(82, 33, 28);
+    private static readonly Color Muted = Color.FromArgb(120, 83, 72);
+    private static readonly Color Accent = Color.FromArgb(170, 45, 36);
 
     private readonly ListBox _videos = NewListBox();
     private readonly ListBox _mp3s = NewListBox();
@@ -49,9 +49,9 @@ public sealed class MainForm : Form
     private readonly ComboBox _selectedVideoSpeed = NewCombo();
     private readonly Button _applySpeed = NewButton("ÁP DỤNG", true);
     private readonly ProgressBar _progress = new();
-    private readonly Label _status = NewLabel("Sẵn sàng.", 10, Muted);
+    private readonly Label _status = NewLabel("Sẵn sàng để dựng video.", 10, Muted);
     private readonly Label _ffmpegStatus = NewLabel("FFmpeg: đang kiểm tra...", 10, Muted);
-    private readonly Button _render = NewButton("▶  BẮT ĐẦU XUẤT", true);
+    private readonly Button _render = NewButton("▶  XUẤT VIDEO", true);
     private readonly Button _cancel = NewButton("HỦY", false);
     private readonly Button _openFolder = NewButton("MỞ THƯ MỤC", false);
     private readonly List<Control> _editableControls = [];
@@ -63,7 +63,7 @@ public sealed class MainForm : Form
 
     public MainForm()
     {
-        Text = "LangKinhHuKhong.Editer v3.0  |  Video Studio • MP3 • SRT • 4 PNG";
+        Text = "LangKinhHuKhong.Editer v4.1  |  Video Editor Studio";
         MinimumSize = new Size(1050, 720);
         Size = new Size(1520, 980);
         StartPosition = FormStartPosition.CenterScreen;
@@ -94,26 +94,27 @@ public sealed class MainForm : Form
             Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 3,
             BackColor = Background, Margin = Padding.Empty, Padding = Padding.Empty
         };
-        root.RowStyles.Add(new RowStyle(SizeType.Absolute, 106));
+        root.RowStyles.Add(new RowStyle(SizeType.Absolute, 118));
         root.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
-        root.RowStyles.Add(new RowStyle(SizeType.Absolute, 145));
+        root.RowStyles.Add(new RowStyle(SizeType.Absolute, 138));
         Controls.Add(root);
 
         var header = new TableLayoutPanel
         {
             Dock = DockStyle.Fill, BackColor = CardColor, ColumnCount = 2, RowCount = 1,
-            Padding = new Padding(27, 14, 27, 10)
+            Padding = new Padding(28, 16, 28, 12)
         };
         header.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
         header.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-        header.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 230));
+        header.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 265));
         // v2.1: show the user's exact supplied logo at its true aspect ratio.
         // The previous nested 44px first row clipped the full-height logo.
-        var brandWrap = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, RowCount = 1, BackColor = CardColor };
-        brandWrap.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 86));
+        var brandWrap = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, RowCount = 1, BackColor = CardColor, Padding = new Padding(6, 0, 0, 0) };
+        brandWrap.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 118));
         brandWrap.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
         var logoBox = NewPreview();
-        logoBox.Margin = new Padding(0, 2, 10, 2);
+        logoBox.Margin = new Padding(0, 0, 12, 0);
+        logoBox.MinimumSize = new Size(96, 82);
         logoBox.BackColor = CardColor;
         logoBox.SizeMode = PictureBoxSizeMode.Zoom;
         TryLoadAppLogo(logoBox);
@@ -121,31 +122,31 @@ public sealed class MainForm : Form
         var brandText = new TableLayoutPanel { Dock = DockStyle.Fill, RowCount = 2, BackColor = CardColor };
         brandText.RowStyles.Add(new RowStyle(SizeType.Percent, 58));
         brandText.RowStyles.Add(new RowStyle(SizeType.Percent, 42));
-        brandText.Controls.Add(NewLabel("LĂNG KÍNH HƯ KHÔNG   /   VIDEO STUDIO", 19, Foreground, true), 0, 0);
-        brandText.Controls.Add(NewLabel("EDITER v3.0  •  4 PNG độc lập  •  Vị trí riêng từng ảnh  •  Subtitle on top", 10, Muted), 0, 1);
+        brandText.Controls.Add(NewLabel("LangKinhHuKhong.Editer v4.1", 20, Foreground, true), 0, 0);
+        brandText.Controls.Add(NewLabel("Biên tập video • Ghép MP3 • SRT • 4 PNG cố định góc", 10, Muted), 0, 1);
         brandWrap.Controls.Add(brandText, 1, 0);
         header.Controls.Add(brandWrap, 0, 0);
-        var badge = NewLabel("●  01 MP4 / MỖI LẦN XUẤT  •  v3.0", 11, Accent, true);
+        var badge = NewLabel("●  01 MP4 MỖI LẦN XUẤT  •  v4.1", 11, Accent, true);
         badge.TextAlign = ContentAlignment.MiddleRight;
         header.Controls.Add(badge, 1, 0);
         root.Controls.Add(header, 0, 0);
 
-        var central = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, BackColor = Background };
-        central.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 202));
+        var central = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, BackColor = Background, Padding = new Padding(0, 6, 0, 0) };
+        central.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 220));
         central.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-        var sidebar = new Panel { Dock = DockStyle.Fill, BackColor = Color.FromArgb(18, 26, 39), Padding = new Padding(13, 19, 12, 12) };
+        var sidebar = new Panel { Dock = DockStyle.Fill, BackColor = Color.FromArgb(239, 228, 216), Padding = new Padding(14, 18, 14, 14) };
         var menu = new FlowLayoutPanel { Dock = DockStyle.Fill, FlowDirection = FlowDirection.TopDown, WrapContents = false };
-        var navTitle = NewLabel("QUY TRÌNH DỰNG VIDEO", 9, Muted, true);
+        var navTitle = NewLabel("ĐIỀU HƯỚNG NHANH", 9, Muted, true);
         navTitle.AutoSize = false; navTitle.Width = 176; navTitle.Height = 44;
         menu.Controls.Add(navTitle);
         AddNav(menu, "01    Video nguồn", () => JumpTo(_videoCard));
-        AddNav(menu, "02    Âm thanh MP3", () => JumpTo(_videoCard));
+        AddNav(menu, "02    Audio MP3", () => JumpTo(_videoCard));
         AddNav(menu, "03    Phụ đề SRT", () => JumpTo(_srtCard));
-        AddNav(menu, "04    4 góc ảnh PNG", () => JumpTo(_overlayCard));
-        AddNav(menu, "05    Xem trước bố cục", () => JumpTo(_previewCard));
-        AddNav(menu, "06    Cấu hình xuất", () => JumpTo(_settingsCard));
+        AddNav(menu, "04    Ảnh PNG 4 góc", () => JumpTo(_overlayCard));
+        AddNav(menu, "05    Xem trước", () => JumpTo(_previewCard));
+        AddNav(menu, "06    Xuất video", () => JumpTo(_settingsCard));
         var hint = NewLabel("KÉO THẢ TỆP VÀO DANH SÁCH\n\nVideo được lặp từ đầu nếu ngắn hơn audio. Phụ đề theo thời gian MP3, không theo vòng lặp video.", 9, Muted);
-        hint.Width = 173; hint.Height = 160; hint.Margin = new Padding(0, 32, 0, 0);
+        hint.Width = 184; hint.Height = 168; hint.Margin = new Padding(0, 32, 0, 0);
         menu.Controls.Add(hint);
         sidebar.Controls.Add(menu);
         central.Controls.Add(sidebar, 0, 0);
@@ -155,7 +156,7 @@ public sealed class MainForm : Form
         var body = new TableLayoutPanel
         {
             Dock = DockStyle.Top, AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink,
-            ColumnCount = 2, RowCount = 7, Padding = new Padding(16, 14, 17, 18), BackColor = Background
+            ColumnCount = 2, RowCount = 7, Padding = new Padding(18, 16, 18, 18), BackColor = Background
         };
         body.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
         body.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
@@ -168,9 +169,9 @@ public sealed class MainForm : Form
         body.RowStyles.Add(new RowStyle(SizeType.Absolute, 32));
         _scrollArea.Controls.Add(body);
 
-        _videoCard = CreateMediaCard("01  VIDEO NGUỒN • THỨ TỰ PHÁT", _videos, _videoCount, true);
+        _videoCard = CreateMediaCard("01  VIDEO NGUỒN", _videos, _videoCount, true);
         body.Controls.Add(_videoCard, 0, 0);
-        body.Controls.Add(CreateMediaCard("02  MP3 • NỐI LIỀN THÀNH 1 AUDIO", _mp3s, _mp3Count, false), 1, 0);
+        body.Controls.Add(CreateMediaCard("02  AUDIO MP3", _mp3s, _mp3Count, false), 1, 0);
 
         _srtCard = CreateSubtitleCard();
         body.Controls.Add(_srtCard, 0, 1);
@@ -190,7 +191,7 @@ public sealed class MainForm : Form
         body.Controls.Add(_settingsCard, 0, 5);
         body.SetColumnSpan(_settingsCard, 2);
 
-        var note = NewLabel("4 Ô KÉO THẢ: Trên trái / Trên phải / Dưới trái / Dưới phải  |  0–4 PNG  |  Text lớp trên cùng  |  1 MP4 theo MP3", 10, Muted);
+        var note = NewLabel("0–4 PNG cố định theo 4 góc • Text phụ đề luôn nằm trên cùng • Kết quả xuất: 1 MP4 duy nhất", 10, Muted);
         note.Margin = new Padding(12, 2, 0, 0);
         body.Controls.Add(note, 0, 6);
         body.SetColumnSpan(note, 2);
@@ -199,7 +200,7 @@ public sealed class MainForm : Form
         var footer = new TableLayoutPanel
         {
             Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 3,
-            Padding = new Padding(23, 11, 24, 12), BackColor = CardColor
+            Padding = new Padding(22, 10, 22, 12), BackColor = CardColor
         };
         footer.RowStyles.Add(new RowStyle(SizeType.Absolute, 30));
         footer.RowStyles.Add(new RowStyle(SizeType.Absolute, 23));
@@ -249,7 +250,7 @@ public sealed class MainForm : Form
         table.RowStyles.Add(new RowStyle(SizeType.Absolute, 38));
         table.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
         table.RowStyles.Add(new RowStyle(SizeType.Absolute, 62));
-        table.Controls.Add(NewLabel("03  PHỤ ĐỀ SRT  /  ĐỒNG BỘ AUDIO MP3", 12, Foreground, true), 0, 0);
+        table.Controls.Add(NewLabel("03  PHỤ ĐỀ SRT", 12, Foreground, true), 0, 0);
         var inner = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, RowCount = 1 };
         inner.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 49));
         inner.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 51));
@@ -410,7 +411,7 @@ public sealed class MainForm : Form
             table.Controls.Add(CreateVideoSpeedRow(), 0, 3);
         else
         {
-            var note = NewLabel("MP3 1 → MP3 2 → MP3 3 → ... = 1 audio; xuất duy nhất 1 MP4.", 10, Muted);
+            var note = NewLabel("Toàn bộ MP3 sẽ được nối thành một audio duy nhất trước khi xuất video.", 10, Muted);
             note.Padding = new Padding(0, 10, 0, 0);
             table.Controls.Add(note, 0, 3);
         }
@@ -426,7 +427,7 @@ public sealed class MainForm : Form
             Dock = DockStyle.Fill, WrapContents = true,
             Padding = new Padding(0, 7, 0, 0), AutoScroll = false
         };
-        var caption = NewInlineLabel("Tốc độ chọn:");
+        var caption = NewInlineLabel("Tốc độ phát:");
         caption.Margin = new Padding(0, 8, 5, 0);
         row.Controls.Add(caption);
         _selectedVideoSpeed.Items.AddRange(PlaybackSpeeds.Allowed
@@ -457,7 +458,7 @@ public sealed class MainForm : Form
         _muteSourceAudio.Text = _muteSourceAudio.Checked
             ? "🔇 TẮT ÂM GỐC: BẬT"
             : "🔊 GIỮ ÂM GỐC: BẬT";
-        _muteSourceAudio.BackColor = _muteSourceAudio.Checked ? InputColor : Color.FromArgb(30, 105, 80);
+        _muteSourceAudio.BackColor = _muteSourceAudio.Checked ? InputColor : Color.FromArgb(245, 226, 204);
         _muteSourceAudio.ForeColor = Foreground;
     }
 
@@ -518,7 +519,7 @@ public sealed class MainForm : Form
         controls.RowStyles.Add(new RowStyle(SizeType.Absolute, 42));
         controls.RowStyles.Add(new RowStyle(SizeType.Absolute, 42));
         controls.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
-        controls.Controls.Add(NewLabel(slot.Title, 11, Foreground, true), 0, 0);
+        controls.Controls.Add(NewLabel(slot.Title.Replace("04-", "04 "), 11, Foreground, true), 0, 0);
         slot.PathBox.Dock = DockStyle.Fill;
         slot.PathBox.Margin = new Padding(0, 2, 0, 7);
         slot.PathBox.ReadOnly = true;
@@ -543,7 +544,7 @@ public sealed class MainForm : Form
         var positionRow = CreateOverlayNumberRow("Ngang %", slot.OffsetXBox, "Dọc %", slot.OffsetYBox);
         controls.Controls.Add(positionRow, 0, 4);
 
-        var hint = NewLabel("Vị trí tính từ góc đang chọn • Giữ ảnh trong khung hình", 8, Muted);
+        var hint = NewLabel("Vị trí được tính từ góc neo và luôn giữ ảnh trong khung hình.", 8, Muted);
         hint.AutoEllipsis = true;
         hint.Dock = DockStyle.Fill;
         controls.Controls.Add(hint, 0, 5);
@@ -663,7 +664,7 @@ public sealed class MainForm : Form
         right.RowStyles.Add(new RowStyle(SizeType.Absolute, 54));
         right.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
         right.RowStyles.Add(new RowStyle(SizeType.Absolute, 42));
-        right.Controls.Add(NewLabel("05  PREVIEW BỐ CỤC (16:9)", 11, Foreground, true), 0, 0);
+        right.Controls.Add(NewLabel("05  XEM TRƯỚC BỐ CỤC (16:9)", 11, Foreground, true), 0, 0);
         right.Controls.Add(NewLabel("- Kéo thả ảnh vào 4 ô hoặc 4 phần tư của preview.\n- Text/subtitle sẽ nằm lớp trên cùng.", 9, Muted), 0, 1);
         right.Controls.Add(NewLabel("- Mỗi ảnh chỉnh riêng kích thước và vị trí X/Y.\n- Ảnh luôn được giới hạn trong video, không bị tràn ra ngoài.", 9, Muted), 0, 2);
         right.Controls.Add(NewLabel("- Khung mô phỏng đúng tỷ lệ 16:9 và tọa độ ảnh.\n- Kiểu chữ xem trước có thể khác FFmpeg/libass đôi chút.", 9, Muted), 0, 3);
@@ -706,17 +707,17 @@ public sealed class MainForm : Form
             using var bmp = new Bitmap(1280, 720);
             using var g = Graphics.FromImage(bmp);
             g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
-            g.Clear(Color.FromArgb(8, 12, 18));
+            g.Clear(Color.FromArgb(247, 241, 234));
             using var bgBrush = new LinearGradientBrush(new Rectangle(0, 0, bmp.Width, bmp.Height),
-                Color.FromArgb(30, 45, 65), Color.FromArgb(10, 16, 24), 20f);
+                Color.FromArgb(248, 241, 232), Color.FromArgb(238, 228, 217), 20f);
             g.FillRectangle(bgBrush, 0, 0, bmp.Width, bmp.Height);
             var stage = new Rectangle(0, 0, bmp.Width, bmp.Height);
-            using (var stageBrush = new SolidBrush(Color.FromArgb(22, 30, 44)))
+            using (var stageBrush = new SolidBrush(Color.FromArgb(250, 247, 242)))
                 g.FillRectangle(stageBrush, stage);
-            using (var pen = new Pen(Color.FromArgb(70, 93, 118), 2))
+            using (var pen = new Pen(Color.FromArgb(214, 184, 156), 2))
                 g.DrawRectangle(pen, stage);
 
-            using (var labelBrush = new SolidBrush(Color.FromArgb(160, 205, 220, 240)))
+            using (var labelBrush = new SolidBrush(Color.FromArgb(190, 107, 71, 59)))
             using (var labelFont = new Font("Segoe UI", 14, FontStyle.Bold))
             {
                 g.DrawString($"BỐ CỤC XUẤT {w}x{h} | Kích thước và vị trí độc lập cho từng góc", labelFont, labelBrush, 16, 10);
@@ -749,8 +750,8 @@ public sealed class MainForm : Form
         var y = corner is Corner.TopLeft or Corner.TopRight
             ? stage.Top + 28 : stage.Bottom - guideHeight - inset;
         var bounds = new Rectangle(x, y, guideWidth, guideHeight);
-        using var border = new Pen(Color.FromArgb(90, 70, 185, 175), 2) { DashStyle = DashStyle.Dash };
-        using var brush = new SolidBrush(Color.FromArgb(180, 153, 196, 201));
+        using var border = new Pen(Color.FromArgb(140, 185, 93, 62), 2) { DashStyle = DashStyle.Dash };
+        using var brush = new SolidBrush(Color.FromArgb(150, 245, 232, 218));
         using var font = new Font("Segoe UI", 11, FontStyle.Regular);
         g.DrawRectangle(border, bounds);
         var title = corner switch
@@ -791,7 +792,7 @@ public sealed class MainForm : Form
                 ? stage.Top + Math.Clamp(offsetY, 0, stage.Height - height)
                 : stage.Bottom - height - Math.Clamp(offsetY, 0, stage.Height - height);
             g.DrawImage(image, new Rectangle(x, y, width, height));
-            using var pen = new Pen(Color.FromArgb(120, 255, 255, 255), 1);
+            using var pen = new Pen(Color.FromArgb(120, 174, 108, 82), 1);
             g.DrawRectangle(pen, x, y, width, height);
         }
         catch { }
@@ -876,7 +877,7 @@ public sealed class MainForm : Form
         table.RowStyles.Add(new RowStyle(SizeType.Absolute, 39));
         table.RowStyles.Add(new RowStyle(SizeType.Absolute, 52));
         table.RowStyles.Add(new RowStyle(SizeType.Absolute, 44));
-        table.Controls.Add(NewLabel("06  CẤU HÌNH XUẤT VIDEO", 11, Foreground, true), 0, 0);
+        table.Controls.Add(NewLabel("06  THIẾT LẬP XUẤT VIDEO", 11, Foreground, true), 0, 0);
 
         var folderRow = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 3 };
         folderRow.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 121));
@@ -912,7 +913,7 @@ public sealed class MainForm : Form
         optionsRow.Controls.Add(_encoder);
         table.Controls.Add(optionsRow, 0, 2);
 
-        var autoLoopNote = NewLabel("TỰ ĐỘNG: Nối toàn bộ video, lặp từ Video 1 nếu thiếu; độ dài MP4 = tổng MP3 đã nối.", 10, Muted);
+        var autoLoopNote = NewLabel("Hệ thống sẽ nối toàn bộ video, tự lặp từ video đầu nếu thiếu; độ dài cuối cùng luôn bám theo tổng audio MP3.", 10, Muted);
         autoLoopNote.AutoSize = true;
         autoLoopNote.Padding = new Padding(0, 5, 0, 0);
         table.Controls.Add(autoLoopNote, 0, 3);
@@ -992,13 +993,13 @@ public sealed class MainForm : Form
         {
             var found = FfmpegLocator.Find();
             _ffmpegStatus.Text = "✓ FFmpeg đã sẵn sàng";
-            _ffmpegStatus.ForeColor = Color.FromArgb(110, 219, 158);
+            _ffmpegStatus.ForeColor = Color.FromArgb(98, 146, 106);
             _tooltip.SetToolTip(_ffmpegStatus, found.Ffmpeg);
         }
         catch (FileNotFoundException)
         {
             _ffmpegStatus.Text = "⚠ Chưa có FFmpeg (xem README)";
-            _ffmpegStatus.ForeColor = Color.FromArgb(255, 187, 98);
+            _ffmpegStatus.ForeColor = Color.FromArgb(171, 118, 52);
         }
     }
 
@@ -1274,7 +1275,7 @@ public sealed class MainForm : Form
 
     private static Label NewInlineLabel(string text) => new()
     {
-        Text = text, AutoSize = true, ForeColor = Muted, BackColor = CardColor,
+        Text = text, AutoSize = true, ForeColor = Muted, BackColor = Color.Transparent,
         Margin = new Padding(12, 7, 4, 0)
     };
 
@@ -1295,7 +1296,7 @@ public sealed class MainForm : Form
     private static PictureBox NewPreview() => new()
     {
         Dock = DockStyle.Fill, SizeMode = PictureBoxSizeMode.Zoom,
-        BackColor = InputColor, Margin = new Padding(0, 0, 8, 0)
+        BackColor = Color.FromArgb(255, 248, 242), Margin = new Padding(0, 0, 8, 0)
     };
 
     private static ComboBox NewCombo() => new()
@@ -1316,11 +1317,11 @@ public sealed class MainForm : Form
     private static Button NewButton(string text, bool primary) => new StudioButton()
     {
         Text = text, Height = 34, Width = 120,
-        BackColor = primary ? Accent : InputColor, ForeColor = Color.White,
+        BackColor = primary ? Accent : Color.FromArgb(255, 242, 228), ForeColor = primary ? Color.White : Foreground,
         FlatStyle = FlatStyle.Flat, Cursor = Cursors.Hand,
         Font = new Font("Segoe UI", 9, FontStyle.Bold),
         Margin = new Padding(0, 0, 8, 0), UseVisualStyleBackColor = false,
-        FlatAppearance = { BorderSize = 0, MouseOverBackColor = Color.FromArgb(50, 117, 125) }
+        FlatAppearance = { BorderSize = 0, MouseOverBackColor = primary ? Color.FromArgb(182, 34, 26) : Color.FromArgb(250, 232, 214) }
     };
 
     private sealed record MediaFile(string FullPath, bool IsVideo, double PlaybackSpeed = 1.0)
