@@ -94,41 +94,119 @@ public sealed class MainForm : Form
             Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 3,
             BackColor = Background, Margin = Padding.Empty, Padding = Padding.Empty
         };
-        root.RowStyles.Add(new RowStyle(SizeType.Absolute, 118));
+        root.RowStyles.Add(new RowStyle(SizeType.Absolute, 134));
         root.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
         root.RowStyles.Add(new RowStyle(SizeType.Absolute, 138));
         Controls.Add(root);
 
+        // Header v4.1: logo / tên sản phẩm / trạng thái nằm trên ba cột độc lập.
+        // Không dùng MinimumSize hoặc các TableLayoutPanel lồng nhau để tránh logo
+        // bị đẩy thấp, cắt mép khi Windows có DPI scaling khác nhau.
         var header = new TableLayoutPanel
         {
-            Dock = DockStyle.Fill, BackColor = CardColor, ColumnCount = 2, RowCount = 1,
-            Padding = new Padding(28, 16, 28, 12)
+            Dock = DockStyle.Fill,
+            BackColor = CardColor,
+            ColumnCount = 3,
+            RowCount = 1,
+            Margin = Padding.Empty,
+            Padding = new Padding(24, 10, 26, 10)
         };
         header.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+        header.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 120));
         header.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-        header.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 265));
-        // v2.1: show the user's exact supplied logo at its true aspect ratio.
-        // The previous nested 44px first row clipped the full-height logo.
-        var brandWrap = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, RowCount = 1, BackColor = CardColor, Padding = new Padding(6, 0, 0, 0) };
-        brandWrap.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 118));
-        brandWrap.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-        var logoBox = NewPreview();
-        logoBox.Margin = new Padding(0, 0, 12, 0);
-        logoBox.MinimumSize = new Size(96, 82);
-        logoBox.BackColor = CardColor;
-        logoBox.SizeMode = PictureBoxSizeMode.Zoom;
+        header.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 246));
+
+        var logoHolder = new Panel
+        {
+            Dock = DockStyle.Fill,
+            BackColor = CardColor,
+            Margin = Padding.Empty,
+            Padding = new Padding(1, 3, 12, 3)
+        };
+        var logoBox = new PictureBox
+        {
+            Dock = DockStyle.Fill,
+            BackColor = CardColor,
+            SizeMode = PictureBoxSizeMode.Zoom,
+            Margin = Padding.Empty,
+            TabStop = false
+        };
         TryLoadAppLogo(logoBox);
-        brandWrap.Controls.Add(logoBox, 0, 0);
-        var brandText = new TableLayoutPanel { Dock = DockStyle.Fill, RowCount = 2, BackColor = CardColor };
-        brandText.RowStyles.Add(new RowStyle(SizeType.Percent, 58));
-        brandText.RowStyles.Add(new RowStyle(SizeType.Percent, 42));
-        brandText.Controls.Add(NewLabel("LangKinhHuKhong.Editer v4.1", 20, Foreground, true), 0, 0);
-        brandText.Controls.Add(NewLabel("Biên tập video • Ghép MP3 • SRT • 4 PNG cố định góc", 10, Muted), 0, 1);
-        brandWrap.Controls.Add(brandText, 1, 0);
-        header.Controls.Add(brandWrap, 0, 0);
-        var badge = NewLabel("●  01 MP4 MỖI LẦN XUẤT  •  v4.1", 11, Accent, true);
-        badge.TextAlign = ContentAlignment.MiddleRight;
-        header.Controls.Add(badge, 1, 0);
+        logoHolder.Controls.Add(logoBox);
+        header.Controls.Add(logoHolder, 0, 0);
+
+        var brandText = new Panel
+        {
+            Dock = DockStyle.Fill,
+            BackColor = CardColor,
+            Margin = Padding.Empty
+        };
+        var brandTitle = new Label
+        {
+            Text = "LangKinhHuKhong.Editer v4.1",
+            AutoSize = false,
+            AutoEllipsis = true,
+            TextAlign = ContentAlignment.MiddleLeft,
+            ForeColor = Foreground,
+            BackColor = Color.Transparent,
+            Font = new Font("Segoe UI", 19F, FontStyle.Bold)
+        };
+        var brandCaption = new Label
+        {
+            Text = "LĂNG KÍNH HƯ KHÔNG  ·  VIDEO EDITOR STUDIO",
+            AutoSize = false,
+            AutoEllipsis = true,
+            TextAlign = ContentAlignment.MiddleLeft,
+            ForeColor = Muted,
+            BackColor = Color.Transparent,
+            Font = new Font("Segoe UI", 10F, FontStyle.Regular)
+        };
+        brandText.Controls.Add(brandTitle);
+        brandText.Controls.Add(brandCaption);
+        void LayoutBrandText()
+        {
+            var titleH = brandTitle.Font.Height + 9;
+            var captionH = brandCaption.Font.Height + 7;
+            var totalH = titleH + captionH + 3;
+            var y = Math.Max(0, (brandText.ClientSize.Height - totalH) / 2);
+            var w = Math.Max(0, brandText.ClientSize.Width - 6);
+            brandTitle.SetBounds(0, y, w, titleH);
+            brandCaption.SetBounds(0, y + titleH + 3, w, captionH);
+        }
+        brandText.Resize += (_, _) => LayoutBrandText();
+        header.Controls.Add(brandText, 1, 0);
+
+        var statusPanel = new Panel
+        {
+            Dock = DockStyle.Fill,
+            BackColor = Color.FromArgb(241, 230, 217),
+            Margin = new Padding(14, 20, 0, 20)
+        };
+        var statusTitle = new Label
+        {
+            Text = "●  XUẤT MỘT VIDEO DUY NHẤT",
+            AutoSize = false,
+            Dock = DockStyle.Top,
+            Height = 28,
+            TextAlign = ContentAlignment.BottomCenter,
+            BackColor = Color.Transparent,
+            ForeColor = Accent,
+            Font = new Font("Segoe UI", 9F, FontStyle.Bold)
+        };
+        var statusDescription = new Label
+        {
+            Text = "MP4  ·  720p / 1080p / 4K",
+            AutoSize = false,
+            Dock = DockStyle.Fill,
+            TextAlign = ContentAlignment.MiddleCenter,
+            BackColor = Color.Transparent,
+            ForeColor = Muted,
+            Font = new Font("Segoe UI", 8.5F)
+        };
+        // Dock=Top sau cùng để không che dòng mô tả bên dưới.
+        statusPanel.Controls.Add(statusDescription);
+        statusPanel.Controls.Add(statusTitle);
+        header.Controls.Add(statusPanel, 2, 0);
         root.Controls.Add(header, 0, 0);
 
         var central = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, BackColor = Background, Padding = new Padding(0, 6, 0, 0) };
@@ -852,6 +930,7 @@ public sealed class MainForm : Form
     {
         var candidates = new[]
         {
+            Path.Combine(AppContext.BaseDirectory, "Assets", "software-logo-header.png"),
             Path.Combine(AppContext.BaseDirectory, "Assets", "software-logo.png"),
             Path.Combine(AppContext.BaseDirectory, "software-logo.png")
         };

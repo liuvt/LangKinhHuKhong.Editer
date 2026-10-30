@@ -30,3 +30,13 @@ publish-win-x64.bat
 ```
 
 Đây là **source code**, chưa phải EXE build sẵn.
+
+## Bản sửa riêng cho header/logo (v4.1 Header Alignment Fix)
+
+- Header chuyển thành **3 cột trực tiếp**: logo, tên ứng dụng, trạng thái xuất.
+- Logo căn giữa trong vùng riêng, sử dụng `PictureBoxSizeMode.Zoom`; không đặt `MinimumSize` có thể đẩy hình xuống hoặc làm vỡ layout.
+- Bổ sung `Assets/software-logo-header.png`, là logo gốc **được bỏ vùng trong suốt thừa** và thu nhỏ để tải nhanh hơn. Tệp `Assets/software-logo.png` gốc vẫn giữ nguyên.
+- Phần tên sản phẩm và mô tả sử dụng hai `Label` được căn giữa theo chiều dọc, xử lý cả khi cửa sổ thay đổi kích thước.
+- **Không chỉnh sửa** bất kỳ tệp nào trong `Core/`, không đổi cách xử lý MP3, SRT, overlay hay export.
+
+Sau khi publish, cần đảm bảo có file `publish\\win-x64\\Assets\\software-logo-header.png` cạnh phần mềm (trong thư mục `Assets`). Nếu dùng bản EXE cũ hoặc chưa copy assets mới, header sẽ dùng fallback logo gốc.
